@@ -12,20 +12,34 @@ import (
 type Args struct {
 	P     Params
 	World [][]byte
-	Turn  int
 }
 
 type Engine struct{}
 
+type AliveCellsReply struct {
+	AliveCells     int
+	CompletedTurns int
+}
+
 var WORLD [][]byte
-var TURNS int
 var PARAMS Params
+var ALIVECELLS int
+var COMPLETEDTURNS int
 
 // Start COMMENT
 func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
-	TURNS = args.Turn
 	WORLD = distributor(args.P, args.World)
 	*reply = WORLD
+
+	return
+}
+
+// GetAliveCells ...
+func (e *Engine) GetAliveCells(args Args, reply *AliveCellsReply) (err error) {
+	*reply = AliveCellsReply{
+		AliveCells:     ALIVECELLS,
+		CompletedTurns: COMPLETEDTURNS,
+	}
 
 	return
 }

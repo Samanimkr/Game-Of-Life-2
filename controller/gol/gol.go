@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"log"
 	"net/rpc"
+	"time"
 
 	"uk.ac.bris.cs/gameoflife/util"
 )
+
+var server *string
 
 // Params provides the details of how to run the Game of Life and which image to load.
 type Params struct {
@@ -33,16 +36,9 @@ type distributorChannels struct {
 	keyPresses <-chan rune
 }
 
-func getAliveCells(p Params, world [][]byte) []util.Cell {
-	currentAliveCells := make([]util.Cell, 0) // create aliveCells slice
-	for y := 0; y < p.ImageHeight; y++ {      // go through all cells in world
-		for x := 0; x < p.ImageWidth; x++ {
-			if world[y][x] != 0 {
-				currentAliveCells = append(currentAliveCells, util.Cell{X: x, Y: y}) // adds current cell to the aliveCells slice
-			}
-		}
-	}
-	return currentAliveCells
+type AliveCellsReply struct {
+	AliveCells     int
+	CompletedTurns int
 }
 
 func outputPGM(world [][]byte, c distributorChannels, p Params, turn int) {
@@ -57,6 +53,19 @@ func outputPGM(world [][]byte, c distributorChannels, p Params, turn int) {
 	c.ioCommand <- ioCheckIdle
 	<-c.ioIdle
 	c.events <- ImageOutputComplete{turn, outputFileName}
+}
+
+func getAliveCells(p Params, world [][]byte) []util.Cell {
+	finalAliveCells := make([]util.Cell, 0)
+	for y := 0; y < p.ImageHeight; y++ {
+		for x := 0; x < p.ImageWidth; x++ {
+			if world[y][x] == 255 {
+				cell := util.Cell{Y: y, X: x}
+				finalAliveCells = append(finalAliveCells, cell)
+			}
+		}
+	}
+	return finalAliveCells
 }
 
 func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
@@ -80,31 +89,77 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 	// connect to engine
 	controller := engineConnection()
 
-	var args Args
+	// args := world
 	response := new([][]byte)
 
-	for turns := 0; turns < p.Turns; turns++ {
-		request := Args{
-			World: world,
-			Turn:  turns,
-			P:     p,
+	ticker := time.NewTicker(2 * time.Second)
+
+	select {
+	// case pressed := <-c.keyPresses:
+	// 	if pressed == 's' {
+	// 		outputPGM(world, c, p, turns)
+	// 	} else if pressed == 'q' {
+	// 		outputPGM(world, c, p, turns)
+	// 		c.events <- StateChange{CompletedTurns: turns, NewState: Quitting}
+	// 		c.ioCommand <- ioCheckIdle
+	// 		<-c.ioIdle
+	// 		close(c.events)
+	// 		return
+	// 	} else if pressed == 'p' {
+	// 		controller.Call("Engine.Pause", request, &response)
+
+	// 		c.events <- StateChange{CompletedTurns: turns, NewState: Paused}
+	// 		for {
+	// 			tempKey := <-c.keyPresses
+	// 			if tempKey == 'p' {
+	// 				c.events <- StateChange{CompletedTurns: turns, NewState: Executing}
+	// 				break
+	// 			}
+	// 		}
+	// 	}
+	case <-ticker.C:
+		fmt.Println("TICK")
+		aliveCellsResponse := new(AliveCellsReply)
+		controller.Call("Engine.GetAliveCells", nil, &aliveCellsResponse)
+
+		c.events <- AliveCellsCount{
+			CompletedTurns: aliveCellsResponse.CompletedTurns,
+			CellsCount:     aliveCellsResponse.AliveCells,
 		}
 
-		controller.Call("Engine.Start", request, &response)
-		args.World = *response
+	default:
 	}
-	outputPGM(*response, c, p, p.Turns)
+	request := Args{
+		World: world,
+		P:     p,
+	}
+
+	controller.Call("Engine.Start", request, &response)
+	world = *response
+
+	finalAliveCellsNum := getAliveCells(p, world)
+	c.events <- FinalTurnComplete{p.Turns, finalAliveCellsNum}
+	outputPGM(world, c, p, p.Turns)
+
+	c.ioCommand <- ioCheckIdle
+	<-c.ioIdle
+
+	c.events <- StateChange{p.Turns, Quitting}
+	close(c.events)
 }
 
 func engineConnection() *rpc.Client {
 	// connect to engine
-	server := flag.String("server", "127.0.0.1:8030", "IP:port string to connect to as server")
+	if server == nil {
+		server = flag.String("server", "127.0.0.1:8030", "IP:port string to connect to as server")
+	}
 	controller, error := rpc.Dial("tcp", *server)
+
 	if error != nil {
 		log.Fatal("Unable to connect", error)
 	}
-
 	return controller
+
 }
 
 // Run starts the processing of Game of Life. It should initialise channels and goroutines.

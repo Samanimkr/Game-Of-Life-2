@@ -26,6 +26,19 @@ func aliveNeighbours(world [][]byte, y, x int, p Params) int {
 	return neighbours
 }
 
+func getNumAliveCells(p Params, world [][]byte) int {
+	aliveCellsNum := 0
+	for y := 0; y < p.ImageHeight; y++ {
+		for x := 0; x < p.ImageWidth; x++ {
+			if world[y][x] == 255 {
+				aliveCellsNum++
+			}
+		}
+	}
+
+	return aliveCellsNum
+}
+
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p Params, world [][]byte) [][]byte {
 	tempWorld := make([][]byte, p.ImageHeight)
@@ -33,24 +46,28 @@ func distributor(p Params, world [][]byte) [][]byte {
 		tempWorld[i] = make([]byte, p.ImageWidth)
 	}
 
-	for y := 0; y < p.ImageHeight; y++ {
-		for x := 0; x < p.ImageWidth; x++ {
-			numAliveNeighbours := aliveNeighbours(world, y, x, p)
-			if world[y][x] == 255 {
-				if numAliveNeighbours == 2 || numAliveNeighbours == 3 {
-					tempWorld[y][x] = 255
+	for turns := 0; turns < p.Turns; turns++ {
+		for y := 0; y < p.ImageHeight; y++ {
+			for x := 0; x < p.ImageWidth; x++ {
+				numAliveNeighbours := aliveNeighbours(world, y, x, p)
+				if world[y][x] == 255 {
+					if numAliveNeighbours == 2 || numAliveNeighbours == 3 {
+						tempWorld[y][x] = 255
+					} else {
+						tempWorld[y][x] = 0
+					}
 				} else {
-					tempWorld[y][x] = 0
-				}
-			} else {
-				if numAliveNeighbours == 3 {
-					tempWorld[y][x] = 255
-				} else {
-					tempWorld[y][x] = 0
+					if numAliveNeighbours == 3 {
+						tempWorld[y][x] = 255
+					} else {
+						tempWorld[y][x] = 0
+					}
 				}
 			}
 		}
-	}
 
+		ALIVECELLS = getNumAliveCells(p, world)
+		COMPLETEDTURNS = turns
+	}
 	return tempWorld
 }
