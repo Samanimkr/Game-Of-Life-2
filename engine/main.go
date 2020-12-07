@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net"
 	"net/rpc"
@@ -11,9 +10,9 @@ import (
 
 // Args COMMENT
 type Args struct {
-	p     Params
-	world [][]byte
-	turn  int
+	P     Params
+	World [][]byte
+	Turn  int
 }
 
 type Engine struct{}
@@ -24,11 +23,8 @@ var PARAMS Params
 
 // Start COMMENT
 func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
-	fmt.Println("START FUNC")
-
-	TURNS = args.turn
-	WORLD = distributor(args.p, args.world)
-	fmt.Println(WORLD)
+	TURNS = args.Turn
+	WORLD = distributor(args.P, args.World)
 	*reply = WORLD
 
 	return

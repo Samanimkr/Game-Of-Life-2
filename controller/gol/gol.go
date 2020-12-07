@@ -18,9 +18,9 @@ type Params struct {
 }
 
 type Args struct {
-	p     Params
-	world [][]byte
-	turn  int
+	P     Params
+	World [][]byte
+	Turn  int
 }
 
 type distributorChannels struct {
@@ -78,26 +78,20 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 	}
 
 	// connect to engine
-	server := flag.String("server", "127.0.0.1:8030", "IP:port string to connect to as server")
-	controller, error := rpc.Dial("tcp", *server)
-	if error != nil {
-		log.Fatal("Unable to connect", error)
-	} else {
-		fmt.Println("WE GOOD")
-	}
+	controller := engineConnection()
 
 	var args Args
 	response := new([][]byte)
 
 	for turns := 0; turns < p.Turns; turns++ {
 		request := Args{
-			world: world,
-			turn:  turns,
-			p:     p,
+			World: world,
+			Turn:  turns,
+			P:     p,
 		}
 
 		controller.Call("Engine.Start", request, &response)
-		args.world = *response
+		args.World = *response
 	}
 	outputPGM(*response, c, p, p.Turns)
 }
