@@ -97,19 +97,25 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 		world[i] = make([]byte, p.ImageWidth)
 	}
 
-	c.ioCommand <- ioCommand(ioInput)                             // send read command down command channel
-	filename := fmt.Sprintf("%dx%d", p.ImageHeight, p.ImageWidth) // gets file name from putting file dimensions together
-	c.ioFilename <- filename                                      // sends file name to the fileName channel
-
-	// populate world
-	for y := 0; y < p.ImageHeight; y++ {
-		for x := 0; x < p.ImageWidth; x++ {
-			world[y][x] = <-c.ioInput
-		}
-	}
-
 	// connect to engine
 	controller := engineConnection()
+
+	var isAlreadyRunning bool
+	err := controller.Call("Engine.IsAlreadyRunning", p, &isAlreadyRunning)
+	fmt.Println("err: ", err)
+
+	if isAlreadyRunning == false {
+		c.ioCommand <- ioCommand(ioInput)                             // send read command down command channel
+		filename := fmt.Sprintf("%dx%d", p.ImageHeight, p.ImageWidth) // gets file name from putting file dimensions together
+		c.ioFilename <- filename                                      // sends file name to the fileName channel
+
+		// populate world
+		for y := 0; y < p.ImageHeight; y++ {
+			for x := 0; x < p.ImageWidth; x++ {
+				world[y][x] = <-c.ioInput
+			}
+		}
+	}
 
 	// args := world
 	response := new([][]byte)
@@ -164,8 +170,10 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 		}
 	}()
 
-	controller.Call("Engine.Start", request, &response)
-	world = *response
+	if isAlreadyRunning == false {
+		controller.Call("Engine.Start", request, &response)
+		world = *response
+	}
 
 	tck.Stop()
 

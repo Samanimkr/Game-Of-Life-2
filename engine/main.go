@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/rpc"
@@ -37,7 +38,22 @@ var ALIVECELLS int
 var COMPLETEDTURNS int
 var PAUSECHANNEL = make(chan bool, 1)
 
-// Start COMMENT
+func (e *Engine) IsAlreadyRunning(p Params, reply *bool) (err error) {
+	fmt.Println("args.P", p)
+	fmt.Println("PARAMS", PARAMS)
+	fmt.Println("WORLD", WORLD)
+	fmt.Println("COMPLETEDTURNS", COMPLETEDTURNS)
+
+	if p == PARAMS && WORLD != nil && COMPLETEDTURNS-1 != 0 {
+		*reply = true
+
+		return
+	}
+	*reply = false
+	return
+}
+
+// Start function
 func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 	WORLD = distributor(args.P, args.World)
 	*reply = WORLD
