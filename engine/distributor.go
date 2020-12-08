@@ -35,7 +35,6 @@ func getNumAliveCells(p Params, world [][]byte) int {
 			}
 		}
 	}
-
 	return aliveCellsNum
 }
 
@@ -46,7 +45,7 @@ func distributor(p Params, world [][]byte) [][]byte {
 		tempWorld[i] = make([]byte, p.ImageWidth)
 	}
 
-	for turns := 0; turns < p.Turns; turns++ {
+	for turns := 1; turns < p.Turns; turns++ {
 		for y := 0; y < p.ImageHeight; y++ {
 			for x := 0; x < p.ImageWidth; x++ {
 				numAliveNeighbours := aliveNeighbours(world, y, x, p)
@@ -66,8 +65,15 @@ func distributor(p Params, world [][]byte) [][]byte {
 			}
 		}
 
+		for y := 0; y < p.ImageHeight; y++ {
+			for x := 0; x < p.ImageWidth; x++ {
+				world[y][x] = tempWorld[y][x]
+			}
+		}
+
 		ALIVECELLS = getNumAliveCells(p, world)
 		COMPLETEDTURNS = turns
+
 	}
-	return tempWorld
+	return world
 }

@@ -68,6 +68,18 @@ func getAliveCells(p Params, world [][]byte) []util.Cell {
 	return finalAliveCells
 }
 
+func ticker(tck *time.Ticker, controller *rpc.Client, c distributorChannels) {
+	for range tck.C {
+		aliveCellsResponse := new(AliveCellsReply)
+		controller.Call("Engine.GetAliveCells", 0, &aliveCellsResponse)
+
+		c.events <- AliveCellsCount{
+			CompletedTurns: aliveCellsResponse.CompletedTurns,
+			CellsCount:     aliveCellsResponse.AliveCells,
+		}
+	}
+}
+
 func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 	// create slice to store world
 	world := make([][]byte, p.ImageHeight)
@@ -92,43 +104,9 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 	// args := world
 	response := new([][]byte)
 
-	ticker := time.NewTicker(2 * time.Second)
+	tck := time.NewTicker(2 * time.Second)
+	go ticker(tck, controller, c)
 
-	select {
-	// case pressed := <-c.keyPresses:
-	// 	if pressed == 's' {
-	// 		outputPGM(world, c, p, turns)
-	// 	} else if pressed == 'q' {
-	// 		outputPGM(world, c, p, turns)
-	// 		c.events <- StateChange{CompletedTurns: turns, NewState: Quitting}
-	// 		c.ioCommand <- ioCheckIdle
-	// 		<-c.ioIdle
-	// 		close(c.events)
-	// 		return
-	// 	} else if pressed == 'p' {
-	// 		controller.Call("Engine.Pause", request, &response)
-
-	// 		c.events <- StateChange{CompletedTurns: turns, NewState: Paused}
-	// 		for {
-	// 			tempKey := <-c.keyPresses
-	// 			if tempKey == 'p' {
-	// 				c.events <- StateChange{CompletedTurns: turns, NewState: Executing}
-	// 				break
-	// 			}
-	// 		}
-	// 	}
-	case <-ticker.C:
-		fmt.Println("TICK")
-		aliveCellsResponse := new(AliveCellsReply)
-		controller.Call("Engine.GetAliveCells", nil, &aliveCellsResponse)
-
-		c.events <- AliveCellsCount{
-			CompletedTurns: aliveCellsResponse.CompletedTurns,
-			CellsCount:     aliveCellsResponse.AliveCells,
-		}
-
-	default:
-	}
 	request := Args{
 		World: world,
 		P:     p,

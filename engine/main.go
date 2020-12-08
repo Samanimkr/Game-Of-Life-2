@@ -35,11 +35,12 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 }
 
 // GetAliveCells ...
-func (e *Engine) GetAliveCells(args Args, reply *AliveCellsReply) (err error) {
-	*reply = AliveCellsReply{
+func (e *Engine) GetAliveCells(x int, reply *AliveCellsReply) (err error) {
+	aliveCells := AliveCellsReply{
 		AliveCells:     ALIVECELLS,
 		CompletedTurns: COMPLETEDTURNS,
 	}
+	*reply = aliveCells
 
 	return
 }
