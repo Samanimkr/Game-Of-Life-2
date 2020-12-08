@@ -37,17 +37,24 @@ var PARAMS Params
 var ALIVECELLS int
 var COMPLETEDTURNS int
 var PAUSECHANNEL = make(chan bool, 1)
+var FINISHEDCHANNEL = make(chan [][]byte, 1)
+var CANCELCHANNEL = make(chan bool,1)
+var NUMBEROFCONTINUES = 0
 
 func (e *Engine) IsAlreadyRunning(p Params, reply *bool) (err error) {
 	fmt.Println("args.P", p)
-	fmt.Println("PARAMS", PARAMS)
-	fmt.Println("WORLD", WORLD)
+	fmt.Println("PARAMS: ", PARAMS)
 	fmt.Println("COMPLETEDTURNS", COMPLETEDTURNS)
-
-	if p == PARAMS && WORLD != nil && COMPLETEDTURNS-1 != 0 {
-		*reply = true
-
-		return
+	if COMPLETEDTURNS >0   {
+		if PARAMS == p  {
+			*reply = true
+			return
+		}else{
+			//break the already running distributor and then reply false to set up a new one 
+			CANCELCHANNEL <- true
+			*reply = false
+			return
+		}
 	}
 	*reply = false
 	return
@@ -58,6 +65,12 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 	WORLD = distributor(args.P, args.World)
 	*reply = WORLD
 
+	return
+}
+
+func (e *Engine) Continue(x int, reply *[][]byte) (err error){
+	NUMBEROFCONTINUES++
+	*reply = <-FINISHEDCHANNEL
 	return
 }
 

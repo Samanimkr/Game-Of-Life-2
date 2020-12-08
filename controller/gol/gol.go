@@ -101,8 +101,8 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 	controller := engineConnection()
 
 	var isAlreadyRunning bool
-	err := controller.Call("Engine.IsAlreadyRunning", p, &isAlreadyRunning)
-	fmt.Println("err: ", err)
+	controller.Call("Engine.IsAlreadyRunning", p, &isAlreadyRunning)
+	
 
 	if isAlreadyRunning == false {
 		c.ioCommand <- ioCommand(ioInput)                             // send read command down command channel
@@ -172,6 +172,9 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 
 	if isAlreadyRunning == false {
 		controller.Call("Engine.Start", request, &response)
+		world = *response
+	}else{
+		controller.Call("Engine.Continue", 0, &response)
 		world = *response
 	}
 

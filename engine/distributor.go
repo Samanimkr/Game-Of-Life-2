@@ -1,4 +1,7 @@
 package main
+import(
+	"fmt"
+)
 
 type Params struct {
 	Turns       int
@@ -40,6 +43,7 @@ func getNumAliveCells(p Params, world [][]byte) int {
 
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p Params, world [][]byte) [][]byte {
+	PARAMS = p
 	tempWorld := make([][]byte, p.ImageHeight)
 	for i := range tempWorld {
 		tempWorld[i] = make([]byte, p.ImageWidth)
@@ -47,6 +51,15 @@ func distributor(p Params, world [][]byte) [][]byte {
 
 	for turns := 0; turns < p.Turns; turns++ {
 		select {
+		case <- CANCELCHANNEL:
+			fmt.Println("DELTING PREVIOS ENGINE")
+			ALIVECELLS =0
+			COMPLETEDTURNS = 0
+			for i:=0;i < NUMBEROFCONTINUES;i++{
+				FINISHEDCHANNEL <- world
+			}
+			fmt.Println("DONE DELETING")
+			return world
 		case pause := <-PAUSECHANNEL:
 			if pause == true {
 				for {
@@ -84,6 +97,11 @@ func distributor(p Params, world [][]byte) [][]byte {
 			ALIVECELLS = getNumAliveCells(p, world)
 			COMPLETEDTURNS = turns + 1
 		}
+	}
+	ALIVECELLS =0
+	COMPLETEDTURNS = 0
+	for i:=0;i < NUMBEROFCONTINUES;i++{
+		FINISHEDCHANNEL <- world
 	}
 	return world
 }
