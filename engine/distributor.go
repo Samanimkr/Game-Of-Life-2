@@ -71,6 +71,7 @@ func distributor(p Params, world [][]byte) [][]byte {
 			}
 		}
 
+		WORLD = world
 		ALIVECELLS = getNumAliveCells(p, world)
 		COMPLETEDTURNS = turns
 

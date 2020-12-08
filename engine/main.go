@@ -21,6 +21,16 @@ type AliveCellsReply struct {
 	CompletedTurns int
 }
 
+type SaveReply struct {
+	CompletedTurns int
+	World          [][]byte
+}
+
+type PauseReply struct {
+	CompletedTurns int
+	World          [][]byte
+}
+
 var WORLD [][]byte
 var PARAMS Params
 var ALIVECELLS int
@@ -30,6 +40,35 @@ var COMPLETEDTURNS int
 func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 	WORLD = distributor(args.P, args.World)
 	*reply = WORLD
+
+	return
+}
+
+// Save function
+func (e *Engine) Save(x int, reply *SaveReply) (err error) {
+	saveReply := SaveReply{
+		CompletedTurns: COMPLETEDTURNS + 1,
+		World:          WORLD,
+	}
+	*reply = saveReply
+
+	return
+}
+
+// Pause function
+func (e *Engine) Pause(x int, reply *PauseReply) (err error) {
+	pauseReply := PauseReply{
+		CompletedTurns: COMPLETEDTURNS + 1,
+		World:          WORLD,
+	}
+	*reply = pauseReply
+
+	return
+}
+
+// Quit funtion
+func (e *Engine) Quit(x int, reply *int) (err error) {
+	*reply = COMPLETEDTURNS + 1
 
 	return
 }
