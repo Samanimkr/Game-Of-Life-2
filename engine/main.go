@@ -35,6 +35,7 @@ var WORLD [][]byte
 var PARAMS Params
 var ALIVECELLS int
 var COMPLETEDTURNS int
+var PAUSECHANNEL chan bool
 
 // Start COMMENT
 func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
@@ -57,11 +58,24 @@ func (e *Engine) Save(x int, reply *SaveReply) (err error) {
 
 // Pause function
 func (e *Engine) Pause(x int, reply *PauseReply) (err error) {
+	PAUSECHANNEL <- true
 	pauseReply := PauseReply{
 		CompletedTurns: COMPLETEDTURNS + 1,
 		World:          WORLD,
 	}
 	*reply = pauseReply
+
+	return
+}
+
+// Execute function
+func (e *Engine) Execute(x int, reply *PauseReply) (err error) {
+	PAUSECHANNEL <- false
+	executeReply := PauseReply{
+		CompletedTurns: COMPLETEDTURNS + 1,
+		World:          WORLD,
+	}
+	*reply = executeReply
 
 	return
 }

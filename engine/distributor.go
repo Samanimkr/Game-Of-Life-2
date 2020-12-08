@@ -46,35 +46,44 @@ func distributor(p Params, world [][]byte) [][]byte {
 	}
 
 	for turns := 0; turns < p.Turns; turns++ {
-		for y := 0; y < p.ImageHeight; y++ {
-			for x := 0; x < p.ImageWidth; x++ {
-				numAliveNeighbours := aliveNeighbours(world, y, x, p)
-				if world[y][x] == 255 {
-					if numAliveNeighbours == 2 || numAliveNeighbours == 3 {
-						tempWorld[y][x] = 255
-					} else {
-						tempWorld[y][x] = 0
-					}
-				} else {
-					if numAliveNeighbours == 3 {
-						tempWorld[y][x] = 255
-					} else {
-						tempWorld[y][x] = 0
+		select {
+		case pause := <-PAUSECHANNEL:
+			if pause == true {
+				for {
+					tempKey := <-PAUSECHANNEL
+					if tempKey == false {
+						break
 					}
 				}
 			}
-		}
-
-		for y := 0; y < p.ImageHeight; y++ {
-			for x := 0; x < p.ImageWidth; x++ {
-				world[y][x] = tempWorld[y][x]
+		default:
+			for y := 0; y < p.ImageHeight; y++ {
+				for x := 0; x < p.ImageWidth; x++ {
+					numAliveNeighbours := aliveNeighbours(world, y, x, p)
+					if world[y][x] == 255 {
+						if numAliveNeighbours == 2 || numAliveNeighbours == 3 {
+							tempWorld[y][x] = 255
+						} else {
+							tempWorld[y][x] = 0
+						}
+					} else {
+						if numAliveNeighbours == 3 {
+							tempWorld[y][x] = 255
+						} else {
+							tempWorld[y][x] = 0
+						}
+					}
+				}
 			}
+			for y := 0; y < p.ImageHeight; y++ {
+				for x := 0; x < p.ImageWidth; x++ {
+					world[y][x] = tempWorld[y][x]
+				}
+			}
+			WORLD = world
+			ALIVECELLS = getNumAliveCells(p, world)
+			COMPLETEDTURNS = turns
 		}
-
-		WORLD = world
-		ALIVECELLS = getNumAliveCells(p, world)
-		COMPLETEDTURNS = turns
-
 	}
 	return world
 }

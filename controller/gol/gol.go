@@ -127,12 +127,10 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 			select {
 			case pressed := <-keyPresses:
 				if pressed == 's' {
-					fmt.Println("S PRESSED!")
 					saveResponse := new(SaveReply)
 					controller.Call("Engine.Save", 0, &saveResponse)
 					outputPGM(saveResponse.World, c, p, saveResponse.CompletedTurns)
 				} else if pressed == 'q' {
-					fmt.Println("q PRESSED!")
 					var quitResponse int
 					controller.Call("Engine.Quit", 0, &quitResponse)
 					c.events <- StateChange{CompletedTurns: quitResponse, NewState: Quitting}
@@ -141,14 +139,15 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 					close(c.events)
 					return
 				} else if pressed == 'p' {
-					fmt.Println("p PRESSED!")
 					pauseResponse := new(PauseReply)
 					controller.Call("Engine.Pause", 0, &pauseResponse)
 					c.events <- StateChange{CompletedTurns: pauseResponse.CompletedTurns, NewState: Paused}
 					for {
 						tempKey := <-c.keyPresses
 						if tempKey == 'p' {
-							c.events <- StateChange{CompletedTurns: pauseResponse.CompletedTurns, NewState: Executing}
+							executeResponse := new(PauseReply)
+							controller.Call("Engine.Execute", 0, &executeResponse)
+							c.events <- StateChange{CompletedTurns: executeResponse.CompletedTurns, NewState: Executing}
 							break
 						}
 					}
