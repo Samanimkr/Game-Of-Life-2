@@ -3,6 +3,8 @@ import(
 	"fmt"
 )
 
+
+
 type Params struct {
 	Turns       int
 	Threads     int

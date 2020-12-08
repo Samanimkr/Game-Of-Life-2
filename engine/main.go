@@ -32,6 +32,12 @@ type PauseReply struct {
 	World          [][]byte
 }
 
+type IsAlreadyRunningReply struct {
+	P                Params
+	World            [][]byte
+	IsAlreadyRunning bool
+}
+
 var WORLD [][]byte
 var PARAMS Params
 var ALIVECELLS int
@@ -62,12 +68,18 @@ func (e *Engine) IsAlreadyRunning(p Params, reply *bool) (err error) {
 
 // Start function
 func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
+	PARAMS = args.P
+	fmt.Println("Start 1")
+	fmt.Println("Start 1 args.P: ", args.P)
+	fmt.Println("Start 1 args.World: ", args.World != nil)
 	WORLD = distributor(args.P, args.World)
+	fmt.Println("\nStart 2 WORLD: ", WORLD)
 	*reply = WORLD
 
 	return
 }
 
+// Continue function
 func (e *Engine) Continue(x int, reply *[][]byte) (err error){
 	NUMBEROFCONTINUES++
 	*reply = <-FINISHEDCHANNEL
