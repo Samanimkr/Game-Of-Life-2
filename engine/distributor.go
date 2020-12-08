@@ -45,7 +45,7 @@ func distributor(p Params, world [][]byte) [][]byte {
 		tempWorld[i] = make([]byte, p.ImageWidth)
 	}
 
-	for turns := 1; turns < p.Turns; turns++ {
+	for turns := 0; turns < p.Turns; turns++ {
 		for y := 0; y < p.ImageHeight; y++ {
 			for x := 0; x < p.ImageWidth; x++ {
 				numAliveNeighbours := aliveNeighbours(world, y, x, p)

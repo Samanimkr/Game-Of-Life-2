@@ -38,7 +38,7 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 func (e *Engine) GetAliveCells(x int, reply *AliveCellsReply) (err error) {
 	aliveCells := AliveCellsReply{
 		AliveCells:     ALIVECELLS,
-		CompletedTurns: COMPLETEDTURNS,
+		CompletedTurns: COMPLETEDTURNS + 1,
 	}
 	*reply = aliveCells
 

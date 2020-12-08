@@ -115,6 +115,8 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 	controller.Call("Engine.Start", request, &response)
 	world = *response
 
+	tck.Stop()
+
 	finalAliveCellsNum := getAliveCells(p, world)
 	c.events <- FinalTurnComplete{p.Turns, finalAliveCellsNum}
 	outputPGM(world, c, p, p.Turns)
