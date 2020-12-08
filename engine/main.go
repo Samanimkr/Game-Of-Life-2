@@ -32,30 +32,64 @@ type PauseReply struct {
 	World          [][]byte
 }
 
+type IsAlreadyRunningReply struct {
+	P                Params
+	World            [][]byte
+	IsAlreadyRunning bool
+}
+
 var WORLD [][]byte
 var PARAMS Params
 var ALIVECELLS int
 var COMPLETEDTURNS int
 var PAUSECHANNEL = make(chan bool, 1)
+var FINISHCHANNEL = make(chan bool, 1)
 
-func (e *Engine) IsAlreadyRunning(p Params, reply *bool) (err error) {
-	fmt.Println("args.P", p)
-	fmt.Println("PARAMS", PARAMS)
-	fmt.Println("WORLD", WORLD)
+// IsAlreadyRunning function
+func (e *Engine) IsAlreadyRunning(p Params, reply *IsAlreadyRunningReply) (err error) {
+	fmt.Println("p == PARAMS |", p == PARAMS)
+	fmt.Println("WORLD != nil |", WORLD != nil)
+	fmt.Println("COMPLETEDTURNS-1 > 0 |", COMPLETEDTURNS-1 > 0)
 	fmt.Println("COMPLETEDTURNS", COMPLETEDTURNS)
 
-	if p == PARAMS && WORLD != nil && COMPLETEDTURNS-1 != 0 {
-		*reply = true
+	if p == PARAMS && WORLD != nil && COMPLETEDTURNS-1 > 0 {
+		*reply = IsAlreadyRunningReply{
+			IsAlreadyRunning: true,
+			P:                PARAMS,
+			World:            WORLD,
+		}
 
 		return
 	}
-	*reply = false
+	WORLD = nil
+	PARAMS = p
+	COMPLETEDTURNS = 0
+
+	*reply = IsAlreadyRunningReply{
+		IsAlreadyRunning: false,
+	}
 	return
 }
 
 // Start function
 func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
+	PARAMS = args.P
+	fmt.Println("Start 1")
+	fmt.Println("Start 1 args.P: ", args.P)
+	fmt.Println("Start 1 args.World: ", args.World != nil)
 	WORLD = distributor(args.P, args.World)
+	fmt.Println("\nStart 2 WORLD: ", WORLD)
+	*reply = WORLD
+
+	return
+}
+
+// Continue function
+func (e *Engine) Continue(args Args, reply *[][]byte) (err error) {
+	fmt.Println("000")
+
+	asd := <-FINISHCHANNEL
+	fmt.Println("Finish: ", asd)
 	*reply = WORLD
 
 	return

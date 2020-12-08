@@ -51,6 +51,12 @@ type PauseReply struct {
 	World          [][]byte
 }
 
+type IsAlreadyRunningReply struct {
+	P                Params
+	World            [][]byte
+	IsAlreadyRunning bool
+}
+
 func outputPGM(world [][]byte, c distributorChannels, p Params, turn int) {
 	c.ioCommand <- ioCommand(ioOutput)
 	outputFileName := fmt.Sprintf("%dx%dx%d", p.ImageHeight, p.ImageWidth, turn)
@@ -100,11 +106,12 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 	// connect to engine
 	controller := engineConnection()
 
-	var isAlreadyRunning bool
-	err := controller.Call("Engine.IsAlreadyRunning", p, &isAlreadyRunning)
-	fmt.Println("err: ", err)
+	var isAlreadyRunningReply = new(IsAlreadyRunningReply)
+	controller.Call("Engine.IsAlreadyRunning", p, &isAlreadyRunningReply)
 
-	if isAlreadyRunning == false {
+	fmt.Println("IsAlreadyRunning", isAlreadyRunningReply.IsAlreadyRunning)
+
+	if isAlreadyRunningReply.IsAlreadyRunning == false {
 		c.ioCommand <- ioCommand(ioInput)                             // send read command down command channel
 		filename := fmt.Sprintf("%dx%d", p.ImageHeight, p.ImageWidth) // gets file name from putting file dimensions together
 		c.ioFilename <- filename                                      // sends file name to the fileName channel
@@ -115,6 +122,16 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 				world[y][x] = <-c.ioInput
 			}
 		}
+	} else {
+		fmt.Println("ELSE")
+		world = isAlreadyRunningReply.World
+		p = isAlreadyRunningReply.P
+
+		// for y := 0; y < p.ImageHeight; y++ {
+		// 	for x := 0; x < p.ImageWidth; x++ {
+		// 		world[y][x] = <-c.ioInput
+		// 	}
+		// }
 	}
 
 	// args := world
@@ -127,6 +144,7 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 		World: world,
 		P:     p,
 	}
+	fmt.Println("11111")
 
 	go func() {
 		for {
@@ -170,9 +188,20 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 		}
 	}()
 
-	if isAlreadyRunning == false {
+	if isAlreadyRunningReply.IsAlreadyRunning == false {
+		fmt.Println("2222")
+
 		controller.Call("Engine.Start", request, &response)
 		world = *response
+		fmt.Println("3333")
+
+	} else {
+		fmt.Println("44444")
+
+		controller.Call("Engine.Continue", request, &response)
+		world = *response
+		fmt.Println("5555")
+
 	}
 
 	tck.Stop()

@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 type Params struct {
 	Turns       int
 	Threads     int
@@ -85,5 +87,10 @@ func distributor(p Params, world [][]byte) [][]byte {
 			COMPLETEDTURNS = turns + 1
 		}
 	}
+	fmt.Println("DISTRIBUTOR 000")
+
+	FINISHCHANNEL <- true
+	fmt.Println("DISTRIBUTOR 111")
+
 	return world
 }
