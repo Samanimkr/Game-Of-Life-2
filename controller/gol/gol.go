@@ -122,37 +122,44 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 		P:     p,
 	}
 
-	controller.Call("Engine.Start", request, &response)
-	world = *response
-
-	/*select {
-	case pressed := <-keyPresses:
-		if pressed == 's' {
-			saveResponse := new(SaveReply)
-			controller.Call("Engine.Save", 0, &saveResponse)
-			outputPGM(saveResponse.World, c, p, saveResponse.CompletedTurns)
-		} else if pressed == 'q' {
-			var quitResponse int
-			controller.Call("Engine.Quit", 0, &quitResponse)
-			c.events <- StateChange{CompletedTurns: quitResponse, NewState: Quitting}
-			c.ioCommand <- ioCheckIdle
-			<-c.ioIdle
-			close(c.events)
-			return
-		} else if pressed == 'p' {
-			pauseResponse := new(PauseReply)
-			controller.Call("Engine.Pause", 0, &pauseResponse)
-			c.events <- StateChange{CompletedTurns: pauseResponse.CompletedTurns, NewState: Paused}
-			for {
-				tempKey := <-c.keyPresses
-				if tempKey == 'p' {
-					c.events <- StateChange{CompletedTurns: turns, NewState: Executing}
-					break
+	go func() {
+		for {
+			select {
+			case pressed := <-keyPresses:
+				if pressed == 's' {
+					fmt.Println("S PRESSED!")
+					saveResponse := new(SaveReply)
+					controller.Call("Engine.Save", 0, &saveResponse)
+					outputPGM(saveResponse.World, c, p, saveResponse.CompletedTurns)
+				} else if pressed == 'q' {
+					fmt.Println("q PRESSED!")
+					var quitResponse int
+					controller.Call("Engine.Quit", 0, &quitResponse)
+					c.events <- StateChange{CompletedTurns: quitResponse, NewState: Quitting}
+					c.ioCommand <- ioCheckIdle
+					<-c.ioIdle
+					close(c.events)
+					return
+				} else if pressed == 'p' {
+					fmt.Println("p PRESSED!")
+					pauseResponse := new(PauseReply)
+					controller.Call("Engine.Pause", 0, &pauseResponse)
+					c.events <- StateChange{CompletedTurns: pauseResponse.CompletedTurns, NewState: Paused}
+					for {
+						tempKey := <-c.keyPresses
+						if tempKey == 'p' {
+							c.events <- StateChange{CompletedTurns: pauseResponse.CompletedTurns, NewState: Executing}
+							break
+						}
+					}
 				}
+			default:
 			}
 		}
-	default:
-	}*/
+	}()
+
+	controller.Call("Engine.Start", request, &response)
+	world = *response
 
 	tck.Stop()
 
