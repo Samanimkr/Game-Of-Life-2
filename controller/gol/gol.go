@@ -139,15 +139,22 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 					close(c.events)
 					return
 				} else if pressed == 'p' {
+					tck.Stop()
+
 					pauseResponse := new(PauseReply)
 					controller.Call("Engine.Pause", 0, &pauseResponse)
 					c.events <- StateChange{CompletedTurns: pauseResponse.CompletedTurns, NewState: Paused}
+
 					for {
 						tempKey := <-c.keyPresses
 						if tempKey == 'p' {
 							executeResponse := new(PauseReply)
 							controller.Call("Engine.Execute", 0, &executeResponse)
 							c.events <- StateChange{CompletedTurns: executeResponse.CompletedTurns, NewState: Executing}
+
+							tck := time.NewTicker(2 * time.Second)
+							go ticker(tck, controller, c)
+
 							break
 						}
 					}

@@ -35,7 +35,7 @@ var WORLD [][]byte
 var PARAMS Params
 var ALIVECELLS int
 var COMPLETEDTURNS int
-var PAUSECHANNEL chan bool
+var PAUSECHANNEL = make(chan bool, 1)
 
 // Start COMMENT
 func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
@@ -48,7 +48,7 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 // Save function
 func (e *Engine) Save(x int, reply *SaveReply) (err error) {
 	saveReply := SaveReply{
-		CompletedTurns: COMPLETEDTURNS + 1,
+		CompletedTurns: COMPLETEDTURNS,
 		World:          WORLD,
 	}
 	*reply = saveReply
@@ -60,7 +60,7 @@ func (e *Engine) Save(x int, reply *SaveReply) (err error) {
 func (e *Engine) Pause(x int, reply *PauseReply) (err error) {
 	PAUSECHANNEL <- true
 	pauseReply := PauseReply{
-		CompletedTurns: COMPLETEDTURNS + 1,
+		CompletedTurns: COMPLETEDTURNS,
 		World:          WORLD,
 	}
 	*reply = pauseReply
@@ -72,7 +72,7 @@ func (e *Engine) Pause(x int, reply *PauseReply) (err error) {
 func (e *Engine) Execute(x int, reply *PauseReply) (err error) {
 	PAUSECHANNEL <- false
 	executeReply := PauseReply{
-		CompletedTurns: COMPLETEDTURNS + 1,
+		CompletedTurns: COMPLETEDTURNS,
 		World:          WORLD,
 	}
 	*reply = executeReply
@@ -82,7 +82,7 @@ func (e *Engine) Execute(x int, reply *PauseReply) (err error) {
 
 // Quit funtion
 func (e *Engine) Quit(x int, reply *int) (err error) {
-	*reply = COMPLETEDTURNS + 1
+	*reply = COMPLETEDTURNS
 
 	return
 }
@@ -91,7 +91,7 @@ func (e *Engine) Quit(x int, reply *int) (err error) {
 func (e *Engine) GetAliveCells(x int, reply *AliveCellsReply) (err error) {
 	aliveCells := AliveCellsReply{
 		AliveCells:     ALIVECELLS,
-		CompletedTurns: COMPLETEDTURNS + 1,
+		CompletedTurns: COMPLETEDTURNS,
 	}
 	*reply = aliveCells
 
