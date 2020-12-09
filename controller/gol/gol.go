@@ -91,17 +91,19 @@ func ticker(tck *time.Ticker, controller *rpc.Client, c distributorChannels) {
 }
 
 func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
+	// connect to engine
+	controller := engineConnection()
+	
+
+	var isAlreadyRunning bool
+	controller.Call("Engine.IsAlreadyRunning", p, &isAlreadyRunning)
+	
 	// create slice to store world
 	world := make([][]byte, p.ImageHeight)
 	for i := range world {
 		world[i] = make([]byte, p.ImageWidth)
 	}
 
-	// connect to engine
-	controller := engineConnection()
-
-	var isAlreadyRunning bool
-	controller.Call("Engine.IsAlreadyRunning", p, &isAlreadyRunning)
 	
 
 	if isAlreadyRunning == false {
@@ -117,16 +119,11 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 		}
 	}
 
-	// args := world
-	response := new([][]byte)
-
+	
 	tck := time.NewTicker(2 * time.Second)
 	go ticker(tck, controller, c)
 
-	request := Args{
-		World: world,
-		P:     p,
-	}
+	
 
 	go func() {
 		for {
@@ -170,7 +167,15 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 		}
 	}()
 
+	// args := world
+	response := new([][]byte)
+	
+
 	if isAlreadyRunning == false {
+		request := Args{
+			World: world,
+			P:     p,
+		}
 		controller.Call("Engine.Start", request, &response)
 		world = *response
 	}else{

@@ -35,23 +35,25 @@ type PauseReply struct {
 var WORLD [][]byte
 var PARAMS Params
 var ALIVECELLS int
-var COMPLETEDTURNS int
+var COMPLETEDTURNS = 0
 var PAUSECHANNEL = make(chan bool, 1)
 var FINISHEDCHANNEL = make(chan [][]byte, 1)
 var CANCELCHANNEL = make(chan bool,1)
 var NUMBEROFCONTINUES = 0
+var DONECANCELINGCHANNEL = make(chan bool, 1)
 
 func (e *Engine) IsAlreadyRunning(p Params, reply *bool) (err error) {
 	fmt.Println("args.P", p)
 	fmt.Println("PARAMS: ", PARAMS)
-	fmt.Println("COMPLETEDTURNS", COMPLETEDTURNS)
-	if COMPLETEDTURNS >0   {
+	fmt.Println("COMPLETEDTURNS\n", COMPLETEDTURNS)
+	if COMPLETEDTURNS - 1> 0   {
 		if PARAMS == p  {
 			*reply = true
 			return
 		}else{
 			//break the already running distributor and then reply false to set up a new one 
 			CANCELCHANNEL <- true
+			<- DONECANCELINGCHANNEL
 			*reply = false
 			return
 		}

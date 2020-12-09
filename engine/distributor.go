@@ -58,7 +58,9 @@ func distributor(p Params, world [][]byte) [][]byte {
 			for i:=0;i < NUMBEROFCONTINUES;i++{
 				FINISHEDCHANNEL <- world
 			}
-			fmt.Println("DONE DELETING")
+			NUMBEROFCONTINUES = 0
+			DONECANCELINGCHANNEL <- true
+			fmt.Println("DONE RESETING")
 			return world
 		case pause := <-PAUSECHANNEL:
 			if pause == true {
@@ -98,10 +100,12 @@ func distributor(p Params, world [][]byte) [][]byte {
 			COMPLETEDTURNS = turns + 1
 		}
 	}
-	ALIVECELLS =0
+
+	ALIVECELLS = 0
 	COMPLETEDTURNS = 0
 	for i:=0;i < NUMBEROFCONTINUES;i++{
 		FINISHEDCHANNEL <- world
 	}
+	NUMBEROFCONTINUES =0
 	return world
 }
