@@ -21,10 +21,11 @@ type Params struct {
 }
 
 type NodeArgs struct {
-	P            Params
-	World        [][]byte
-	NextAddress  string
-	WorkerHeight int
+	P               Params
+	World           [][]byte
+	NextAddress     string
+	PreviousAddress string
+	WorkerHeight    int
 }
 
 type Node struct{}
@@ -68,6 +69,8 @@ func worker(world [][]byte, workerOut chan<- byte) {
 	// Create a temporary empty world
 	tempWorld := createWorld(PARAMS.ImageHeight+2, PARAMS.ImageWidth)
 
+	fmt.Println("WORKER")
+
 	// Loop through the worker's section of the world
 	for y := 1; y <= WORKER_HEIGHT; y++ {
 		for x := 0; x < PARAMS.ImageWidth; x++ {
@@ -90,24 +93,40 @@ func worker(world [][]byte, workerOut chan<- byte) {
 			}
 		}
 	}
+	fmt.Println("WORKER2")
 
 	// Send the updated world down the 'workerOut' channel
 	for y := 0; y < WORKER_HEIGHT; y++ {
 		for x := 0; x < PARAMS.ImageWidth; x++ {
+			fmt.Print("[", tempWorld[y+1][x], "] ")
 			workerOut <- tempWorld[y+1][x]
 		}
+		fmt.Println("")
 	}
+	fmt.Println("WORKER3")
+
 }
 
-func (n *Node) GetEndRow(prevRow []byte, reply *[]byte) (err error) {
-	PREVIOUS_ROW = prevRow
-	if WORLD == nil {
-
+func (n *Node) GetPreviousRow(x int, reply *[]byte) (err error) {
+	lastRowToSend := make([]byte, PARAMS.ImageWidth)
+	for i := range lastRowToSend {
+		lastRowToSend[i] = WORLD[WORKER_HEIGHT-1][i]
 	}
+
+	fmt.Println("lastRowToSend: ", lastRowToSend)
+
+	*reply = lastRowToSend
+
+	return
+}
+
+func (n *Node) GetNextRow(x int, reply *[]byte) (err error) {
 	firstRowToSend := make([]byte, PARAMS.ImageWidth)
 	for i := range firstRowToSend {
 		firstRowToSend[i] = WORLD[0][i]
 	}
+
+	fmt.Println("firstRowToSend: ", firstRowToSend)
 
 	*reply = firstRowToSend
 
@@ -117,45 +136,63 @@ func (n *Node) GetEndRow(prevRow []byte, reply *[]byte) (err error) {
 func (n *Node) SendData(args NodeArgs, x *int) (err error) {
 	WORLD = args.World
 	PARAMS = args.P
+	WORKER_HEIGHT = args.WorkerHeight
+
+	*x = 0
+	return
+}
+
+func (n *Node) SendAddresses(args NodeArgs, x *int) (err error) {
+	nextNode, error := rpc.Dial("tcp", args.NextAddress)
+	if error != nil {
+		log.Fatal("Unable to connect1", error)
+	}
+
+	prevNode, error := rpc.Dial("tcp", args.PreviousAddress)
+	if error != nil {
+		log.Fatal("Unable to connect2", error)
+	}
+
+	lastRowToSend := make([]byte, args.P.ImageWidth)
+	for i := range lastRowToSend {
+		lastRowToSend[i] = WORLD[WORKER_HEIGHT-1][i]
+	}
+
+	nextRowToReceive := make([]byte, args.P.ImageWidth)
+	nextNode.Call("Node.GetNextRow", 0, &nextRowToReceive)
+	NEXT_ROW = nextRowToReceive
+
+	prevRowToReceive := make([]byte, args.P.ImageWidth)
+	prevNode.Call("Node.GetPreviousRow", 0, &prevRowToReceive)
+	PREVIOUS_ROW = prevRowToReceive
+
+	fmt.Println("PREVIOUS_ROW: ", PREVIOUS_ROW)
+
 	*x = 0
 
 	return
 }
 
-func (n *Node) Start(args NodeArgs, reply *[][]byte) (err error) {
-	nextNode, error := rpc.Dial("tcp", args.NextAddress)
-	if error != nil {
-		log.Fatal("Unable to connect", error)
-	}
-
-	lastRowToSend := make([]byte, args.P.ImageWidth)
-	for i := range lastRowToSend {
-		lastRowToSend[i] = WORLD[args.WorkerHeight-1][i]
-	}
-
-	nextRowToReceive := make([]byte, args.P.ImageWidth)
-	nextNode.Call("Node.GetEndRow", lastRowToSend, &nextRowToReceive)
-	NEXT_ROW = nextRowToReceive
-
+func (n *Node) Start(x int, reply *[][]byte) (err error) {
 	tempWorld := createWorld(WORKER_HEIGHT+2, PARAMS.ImageWidth)
 	for i := range tempWorld {
 		tempWorld[i] = make([]byte, PARAMS.ImageWidth)
 	}
 
-	for y := 0; y < WORKER_HEIGHT; y++ {
+	for y := 0; y < WORKER_HEIGHT+2; y++ {
 		for x := 0; x < PARAMS.ImageWidth; x++ {
 			if y == 0 {
 				tempWorld[y][x] = PREVIOUS_ROW[x]
-			}
-			if y == WORKER_HEIGHT-1 {
+			} else if y == WORKER_HEIGHT+1 {
 				tempWorld[y][x] = NEXT_ROW[x]
+			} else {
+				tempWorld[y][x] = WORLD[y-1][x]
 			}
-			tempWorld[y][x] = WORLD[y][x]
 		}
 	}
 
 	workerOut := make(chan byte)
-	worker(tempWorld, workerOut)
+	go worker(tempWorld, workerOut)
 
 	newSplit := createWorld(WORKER_HEIGHT, PARAMS.ImageWidth)
 
@@ -171,8 +208,6 @@ func (n *Node) Start(args NodeArgs, reply *[][]byte) (err error) {
 			}
 		}
 	}
-
-	fmt.Println("Updated World: ", WORLD)
 
 	*reply = WORLD
 	return

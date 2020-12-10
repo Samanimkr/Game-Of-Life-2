@@ -39,10 +39,11 @@ type IsAlreadyRunningReply struct {
 }
 
 type NodeArgs struct {
-	P            Params
-	World        [][]byte
-	NextAddress  string
-	WorkerHeight int
+	P               Params
+	World           [][]byte
+	NextAddress     string
+	PreviousAddress string
+	WorkerHeight    int
 }
 
 var WORLD [][]byte
@@ -104,28 +105,33 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 			}
 
 			request := NodeArgs{
-				P:     args.P,
-				World: tempWorld[node],
+				P:            args.P,
+				World:        tempWorld[node],
+				WorkerHeight: workerHeight,
 			}
 			server[node].Call("Node.SendData", request, 0)
+		}
+
+		for node := 0; node < NUMBER_OF_NODES; node++ {
+			server[node] = nodeConnection(NODE_ADDRESSES[node])
+
+			nextAddress := (node + 1 + len(NODE_ADDRESSES)) % len(NODE_ADDRESSES)
+			prevAddress := (node - 1 + len(NODE_ADDRESSES)) % len(NODE_ADDRESSES)
+
+			request := NodeArgs{
+				NextAddress:     NODE_ADDRESSES[nextAddress],
+				PreviousAddress: NODE_ADDRESSES[prevAddress],
+			}
+			server[node].Call("Node.SendAddresses", request, 0)
 		}
 
 		var updatedWorldResponses = make([]*[][]byte, NUMBER_OF_NODES)
 
 		for node := 0; node < NUMBER_OF_NODES; node++ {
 			server[node] = nodeConnection(NODE_ADDRESSES[node])
-			nextAddress := (node + 1 + len(NODE_ADDRESSES)) % len(NODE_ADDRESSES)
-
-			request := NodeArgs{
-				P:            args.P,
-				World:        tempWorld[node],
-				NextAddress:  NODE_ADDRESSES[nextAddress],
-				WorkerHeight: workerHeight,
-			}
-
-			server[node].Call("Node.Start", request, &updatedWorldResponses[node])
-			fmt.Println("Updated World: ", *updatedWorldResponses[node])
+			server[node].Call("Node.Start", 0, &updatedWorldResponses[node])
 		}
+
 		WORLD = nil
 		for i := 0; i < NUMBER_OF_NODES; i++ {
 			WORLD = append(WORLD, *updatedWorldResponses[i]...)
