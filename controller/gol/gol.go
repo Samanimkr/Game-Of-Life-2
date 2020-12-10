@@ -1,11 +1,9 @@
 package gol
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"net/rpc"
-	"os"
 	"time"
 
 	"uk.ac.bris.cs/gameoflife/util"
@@ -193,10 +191,11 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 func engineConnection() *rpc.Client {
 	// connect to engine
 	if server == "" {
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Println("Enter Server IP: ")
-		ip, _ := reader.ReadString('\n')
-		server = ip[0 : len(ip)-1]
+		// reader := bufio.NewReader(os.Stdin)
+		// fmt.Println("Enter Server IP: ")
+		// ip, _ := reader.ReadString('\n')
+		// server = ip[0 : len(ip)-1]
+		server = "127.0.0.1:8030"
 	}
 
 	controller, error := rpc.Dial("tcp", server)

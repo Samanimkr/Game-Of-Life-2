@@ -64,15 +64,15 @@ func aliveNeighbours(world [][]byte, y, x int, p Params) int {
 	return neighbours
 }
 
-func worker(world [][]byte, p Params, turn int, workerOut chan<- byte, workerHeight int) {
+func worker(world [][]byte, workerOut chan<- byte) {
 	// Create a temporary empty world
-	tempWorld := createWorld(p.ImageHeight+2, p.ImageWidth)
+	tempWorld := createWorld(PARAMS.ImageHeight+2, PARAMS.ImageWidth)
 
 	// Loop through the worker's section of the world
-	for y := 1; y <= workerHeight; y++ {
-		for x := 0; x < p.ImageWidth; x++ {
+	for y := 1; y <= WORKER_HEIGHT; y++ {
+		for x := 0; x < PARAMS.ImageWidth; x++ {
 			// Get number of alive neighbours
-			numAliveNeighbours := aliveNeighbours(world, y, x, p)
+			numAliveNeighbours := aliveNeighbours(world, y, x, PARAMS)
 
 			// Calculate what's the new state of the cell depending on alive neighbours
 			if world[y][x] == 255 {
@@ -92,8 +92,8 @@ func worker(world [][]byte, p Params, turn int, workerOut chan<- byte, workerHei
 	}
 
 	// Send the updated world down the 'workerOut' channel
-	for y := 0; y < workerHeight; y++ {
-		for x := 0; x < p.ImageWidth; x++ {
+	for y := 0; y < WORKER_HEIGHT; y++ {
+		for x := 0; x < PARAMS.ImageWidth; x++ {
 			workerOut <- tempWorld[y+1][x]
 		}
 	}
@@ -109,17 +109,12 @@ func (n *Node) GetEndRow(prevRow []byte, reply *[]byte) (err error) {
 		firstRowToSend[i] = WORLD[0][i]
 	}
 
-	fmt.Println("prevRow! ", prevRow)
-	fmt.Println("firstRowToSend! ", firstRowToSend)
-
 	*reply = firstRowToSend
 
 	return
 }
 
 func (n *Node) SendData(args NodeArgs, x *int) (err error) {
-	fmt.Println("World Received: ", args.World != nil)
-
 	WORLD = args.World
 	PARAMS = args.P
 	*x = 0
@@ -128,8 +123,6 @@ func (n *Node) SendData(args NodeArgs, x *int) (err error) {
 }
 
 func (n *Node) Start(args NodeArgs, reply *[][]byte) (err error) {
-	fmt.Println("Start ")
-
 	nextNode, error := rpc.Dial("tcp", args.NextAddress)
 	if error != nil {
 		log.Fatal("Unable to connect", error)
@@ -144,9 +137,44 @@ func (n *Node) Start(args NodeArgs, reply *[][]byte) (err error) {
 	nextNode.Call("Node.GetEndRow", lastRowToSend, &nextRowToReceive)
 	NEXT_ROW = nextRowToReceive
 
-	fmt.Println("NextRow: ", NEXT_ROW)
+	tempWorld := createWorld(WORKER_HEIGHT+2, PARAMS.ImageWidth)
+	for i := range tempWorld {
+		tempWorld[i] = make([]byte, PARAMS.ImageWidth)
+	}
 
-	*reply = make([][]byte, args.P.ImageWidth)
+	for y := 0; y < WORKER_HEIGHT; y++ {
+		for x := 0; x < PARAMS.ImageWidth; x++ {
+			if y == 0 {
+				tempWorld[y][x] = PREVIOUS_ROW[x]
+			}
+			if y == WORKER_HEIGHT-1 {
+				tempWorld[y][x] = NEXT_ROW[x]
+			}
+			tempWorld[y][x] = WORLD[y][x]
+		}
+	}
+
+	workerOut := make(chan byte)
+	worker(tempWorld, workerOut)
+
+	newSplit := createWorld(WORKER_HEIGHT, PARAMS.ImageWidth)
+
+	// Get all the updated cells from the 'workerOut' channel
+	for y := 0; y < WORKER_HEIGHT; y++ {
+		for x := 0; x < PARAMS.ImageWidth; x++ {
+			// Get the new value
+			newSplit[y][x] = <-workerOut
+
+			// Update that cell in 'world'
+			if WORLD[y][x] != newSplit[y][x] {
+				WORLD[y][x] = newSplit[y][x]
+			}
+		}
+	}
+
+	fmt.Println("Updated World: ", WORLD)
+
+	*reply = WORLD
 	return
 }
 
@@ -155,7 +183,7 @@ func main() {
 	portPtr := flag.String("port", ":8031", "listening on this port")
 	flag.Parse()          // call after all flags are defined to parse command line into flags
 	rpc.Register(&Node{}) // WHAT DOES THIS DO?
-	fmt.Println("portPtr: ", *portPtr)
+
 	ln, error := net.Listen("tcp", *portPtr) // listens for connections
 	if error != nil {                        // produces error message if fails to connect
 		log.Fatal("Unable to connect:", error)

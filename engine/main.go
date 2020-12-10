@@ -90,9 +90,17 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 		for node := 0; node < NUMBER_OF_NODES; node++ {
 			server[node] = nodeConnection(NODE_ADDRESSES[node])
 
+			startY := node * workerHeight
+
 			tempWorld[node] = make([][]byte, workerHeight)
-			for i := range tempWorld {
-				tempWorld[i] = make([][]byte, args.P.ImageWidth)
+			for i := range tempWorld[node] {
+				tempWorld[node][i] = make([]byte, PARAMS.ImageWidth)
+			}
+
+			for y := 0; y < workerHeight; y++ {
+				for x := 0; x < PARAMS.ImageWidth; x++ {
+					tempWorld[node][y][x] = args.World[startY+y][x]
+				}
 			}
 
 			request := NodeArgs{
@@ -102,8 +110,10 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 			server[node].Call("Node.SendData", request, 0)
 		}
 
+		var updatedWorldResponses = make([]*[][]byte, NUMBER_OF_NODES)
+
 		for node := 0; node < NUMBER_OF_NODES; node++ {
-			fmt.Println("node: ", node)
+			server[node] = nodeConnection(NODE_ADDRESSES[node])
 			nextAddress := (node + 1 + len(NODE_ADDRESSES)) % len(NODE_ADDRESSES)
 
 			request := NodeArgs{
@@ -112,12 +122,15 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 				NextAddress:  NODE_ADDRESSES[nextAddress],
 				WorkerHeight: workerHeight,
 			}
-			var response [][]byte
-			fmt.Println("start: ", node)
-			err := server[node].Call("Node.Start", request, response)
-			fmt.Println("err: ", err)
-		}
 
+			server[node].Call("Node.Start", request, &updatedWorldResponses[node])
+			fmt.Println("Updated World: ", *updatedWorldResponses[node])
+		}
+		WORLD = nil
+		for i := 0; i < NUMBER_OF_NODES; i++ {
+			WORLD = append(WORLD, *updatedWorldResponses[i]...)
+		}
+		fmt.Println("UPDATED WORLD: ", WORLD)
 	}
 	*reply = WORLD
 
@@ -189,8 +202,6 @@ func nodeConnection(address string) *rpc.Client {
 
 	if error != nil {
 		log.Fatal("Unable to connect", error)
-	} else {
-		fmt.Println("Success!!")
 	}
 
 	return node
