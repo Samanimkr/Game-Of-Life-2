@@ -44,22 +44,22 @@ var ALIVECELLS int
 var COMPLETEDTURNS = 0
 var PAUSECHANNEL = make(chan bool, 1)
 var FINISHEDCHANNEL = make(chan [][]byte, 1)
-var CANCELCHANNEL = make(chan bool,1)
+var CANCELCHANNEL = make(chan bool, 1)
 var NUMBEROFCONTINUES = 0
 var DONECANCELINGCHANNEL = make(chan bool, 1)
+var NUMBER_OF_NODES = 2
+
+var NODE_ADDRESS = "3.86.98.70:8031"
 
 func (e *Engine) IsAlreadyRunning(p Params, reply *bool) (err error) {
-	fmt.Println("args.P", p)
-	fmt.Println("PARAMS: ", PARAMS)
-	fmt.Println("COMPLETEDTURNS\n", COMPLETEDTURNS)
-	if COMPLETEDTURNS - 1> 0   {
-		if PARAMS == p  {
+	if COMPLETEDTURNS-1 > 0 {
+		if PARAMS == p {
 			*reply = true
 			return
-		}else{
-			//break the already running distributor and then reply false to set up a new one 
+		} else {
+			//break the already running distributor and then reply false to set up a new one
 			CANCELCHANNEL <- true
-			<- DONECANCELINGCHANNEL
+			<-DONECANCELINGCHANNEL
 			*reply = false
 			return
 		}
@@ -71,18 +71,29 @@ func (e *Engine) IsAlreadyRunning(p Params, reply *bool) (err error) {
 // Start function
 func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 	PARAMS = args.P
-	fmt.Println("Start 1")
-	fmt.Println("Start 1 args.P: ", args.P)
-	fmt.Println("Start 1 args.World: ", args.World != nil)
-	WORLD = distributor(args.P, args.World)
-	fmt.Println("\nStart 2 WORLD: ", WORLD)
+
+	if NUMBER_OF_NODES == 0 {
+		WORLD = distributor(args.P, args.World)
+	} else {
+		// workerHeight := args.P.ImageHeight / NUMBER_OF_NODES
+		// remainderHeight := args.P.ImageHeight % NUMBER_OF_NODES
+
+		// var splitHeight int
+		// if remainderHeight > 0 {
+		// 	splitHeight = workerHeight + 1
+		// } else {
+		// 	splitHeight = workerHeight
+		// }
+
+		nodeConnection(NODE_ADDRESS)
+	}
 	*reply = WORLD
 
 	return
 }
 
 // Continue function
-func (e *Engine) Continue(x int, reply *[][]byte) (err error){
+func (e *Engine) Continue(x int, reply *[][]byte) (err error) {
 	NUMBEROFCONTINUES++
 	*reply = <-FINISHEDCHANNEL
 	return
@@ -141,6 +152,17 @@ func (e *Engine) GetAliveCells(x int, reply *AliveCellsReply) (err error) {
 	return
 }
 
+func nodeConnection(address string) {
+	node, error := rpc.Dial("tcp", address)
+
+	if error != nil {
+		log.Fatal("Unable to connect", error)
+	} else {
+		fmt.Println("SUCCESS!", node)
+	}
+
+}
+
 // main is the function called when starting Game of Life with 'go run .'
 func main() {
 	runtime.LockOSThread() // not sure what this does but was in skeleton
@@ -155,4 +177,5 @@ func main() {
 	}
 	defer ln.Close() // stops execution until surrounding functions return
 	rpc.Accept(ln)   // accepts connections on ln and serves requests to server for each incoming connection
+
 }
