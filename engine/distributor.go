@@ -52,21 +52,21 @@ func distributor(p Params, world [][]byte) [][]byte {
 
 	for turns := 0; turns < p.Turns; turns++ {
 		select {
-		case <-CANCELCHANNEL:
+		case <-CANCEL_CHANNEL:
 			fmt.Println("DELETING PREVIOUS ENGINE")
-			ALIVECELLS = 0
-			COMPLETEDTURNS = 0
-			for i := 0; i < NUMBEROFCONTINUES; i++ {
-				FINISHEDCHANNEL <- world
+			ALIVE_CELLS = 0
+			COMPLETED_TURNS = 0
+			for i := 0; i < NUMBER_OF_CONTINUES; i++ {
+				FINISHED_CHANNEL <- world
 			}
-			NUMBEROFCONTINUES = 0
-			DONECANCELINGCHANNEL <- true
+			NUMBER_OF_CONTINUES = 0
+			DONE_CANCELING_CHANNEL <- true
 			fmt.Println("DONE RESETTING")
 			return world
-		case pause := <-PAUSECHANNEL:
+		case pause := <-PAUSE_CHANNEL:
 			if pause == true {
 				for {
-					tempKey := <-PAUSECHANNEL
+					tempKey := <-PAUSE_CHANNEL
 					if tempKey == false {
 						break
 					}
@@ -97,16 +97,16 @@ func distributor(p Params, world [][]byte) [][]byte {
 				}
 			}
 			WORLD = world
-			ALIVECELLS = getNumAliveCells(p, world)
-			COMPLETEDTURNS = turns + 1
+			ALIVE_CELLS = getNumAliveCells(p, world)
+			COMPLETED_TURNS = turns + 1
 		}
 	}
 
-	ALIVECELLS = 0
-	COMPLETEDTURNS = 0
-	for i := 0; i < NUMBEROFCONTINUES; i++ {
-		FINISHEDCHANNEL <- world
+	ALIVE_CELLS = 0
+	COMPLETED_TURNS = 0
+	for i := 0; i < NUMBER_OF_CONTINUES; i++ {
+		FINISHED_CHANNEL <- world
 	}
-	NUMBEROFCONTINUES = 0
+	NUMBER_OF_CONTINUES = 0
 	return world
 }

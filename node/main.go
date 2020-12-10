@@ -104,10 +104,10 @@ func (n *Node) GetEndRow(prevRow []byte, reply *[]byte) (err error) {
 
 	firstRowToSend := make([]byte, PARAMS.ImageWidth)
 	for i := range firstRowToSend {
-		firstRowToSend[i] = WORLD[WORKER_HEIGHT-1][i]
+		firstRowToSend[i] = WORLD[0][i]
 	}
 
-	fmt.Println("GetEndRow!")
+	fmt.Println("GetEndRow! ", firstRowToSend)
 
 	*reply = firstRowToSend
 

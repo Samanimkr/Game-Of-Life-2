@@ -47,28 +47,26 @@ type NodeArgs struct {
 
 var WORLD [][]byte
 var PARAMS Params
-var ALIVECELLS int
-var COMPLETEDTURNS = 0
-var PAUSECHANNEL = make(chan bool, 1)
-var FINISHEDCHANNEL = make(chan [][]byte, 1)
-var CANCELCHANNEL = make(chan bool, 1)
-var NUMBEROFCONTINUES = 0
-var DONECANCELINGCHANNEL = make(chan bool, 1)
-var NUMBER_OF_NODES = 1
-
+var ALIVE_CELLS int
+var COMPLETED_TURNS = 0
+var NUMBER_OF_CONTINUES = 0
+var NUMBER_OF_NODES = 2
 var NODE_ADDRESSES = [2]string{"127.0.0.1:8031", "127.0.0.1:8032"}
 
-// var NODE_ADDRESS = "3.86.98.70:8031"
+var PAUSE_CHANNEL = make(chan bool, 1)
+var FINISHED_CHANNEL = make(chan [][]byte, 1)
+var CANCEL_CHANNEL = make(chan bool, 1)
+var DONE_CANCELING_CHANNEL = make(chan bool, 1)
 
 func (e *Engine) IsAlreadyRunning(p Params, reply *bool) (err error) {
-	if COMPLETEDTURNS-1 > 0 {
+	if COMPLETED_TURNS-1 > 0 {
 		if PARAMS == p {
 			*reply = true
 			return
 		} else {
 			//break the already running distributor and then reply false to set up a new one
-			CANCELCHANNEL <- true
-			<-DONECANCELINGCHANNEL
+			CANCEL_CHANNEL <- true
+			<-DONE_CANCELING_CHANNEL
 			*reply = false
 			return
 		}
@@ -127,15 +125,15 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 
 // Continue function
 func (e *Engine) Continue(x int, reply *[][]byte) (err error) {
-	NUMBEROFCONTINUES++
-	*reply = <-FINISHEDCHANNEL
+	NUMBER_OF_CONTINUES++
+	*reply = <-FINISHED_CHANNEL
 	return
 }
 
 // Save function
 func (e *Engine) Save(x int, reply *SaveReply) (err error) {
 	saveReply := SaveReply{
-		CompletedTurns: COMPLETEDTURNS,
+		CompletedTurns: COMPLETED_TURNS,
 		World:          WORLD,
 	}
 	*reply = saveReply
@@ -145,9 +143,9 @@ func (e *Engine) Save(x int, reply *SaveReply) (err error) {
 
 // Pause function
 func (e *Engine) Pause(x int, reply *PauseReply) (err error) {
-	PAUSECHANNEL <- true
+	PAUSE_CHANNEL <- true
 	pauseReply := PauseReply{
-		CompletedTurns: COMPLETEDTURNS,
+		CompletedTurns: COMPLETED_TURNS,
 		World:          WORLD,
 	}
 	*reply = pauseReply
@@ -157,9 +155,9 @@ func (e *Engine) Pause(x int, reply *PauseReply) (err error) {
 
 // Execute function
 func (e *Engine) Execute(x int, reply *PauseReply) (err error) {
-	PAUSECHANNEL <- false
+	PAUSE_CHANNEL <- false
 	executeReply := PauseReply{
-		CompletedTurns: COMPLETEDTURNS,
+		CompletedTurns: COMPLETED_TURNS,
 		World:          WORLD,
 	}
 	*reply = executeReply
@@ -169,7 +167,7 @@ func (e *Engine) Execute(x int, reply *PauseReply) (err error) {
 
 // Quit funtion
 func (e *Engine) Quit(x int, reply *int) (err error) {
-	*reply = COMPLETEDTURNS
+	*reply = COMPLETED_TURNS
 
 	return
 }
@@ -177,8 +175,8 @@ func (e *Engine) Quit(x int, reply *int) (err error) {
 // GetAliveCells ...
 func (e *Engine) GetAliveCells(x int, reply *AliveCellsReply) (err error) {
 	aliveCells := AliveCellsReply{
-		AliveCells:     ALIVECELLS,
-		CompletedTurns: COMPLETEDTURNS,
+		AliveCells:     ALIVE_CELLS,
+		CompletedTurns: COMPLETED_TURNS,
 	}
 	*reply = aliveCells
 
