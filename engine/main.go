@@ -38,6 +38,13 @@ type IsAlreadyRunningReply struct {
 	IsAlreadyRunning bool
 }
 
+type NodeArgs struct {
+	P            Params
+	World        [][]byte
+	NextAddress  string
+	WorkerHeight int
+}
+
 var WORLD [][]byte
 var PARAMS Params
 var ALIVECELLS int
@@ -49,7 +56,9 @@ var NUMBEROFCONTINUES = 0
 var DONECANCELINGCHANNEL = make(chan bool, 1)
 var NUMBER_OF_NODES = 2
 
-var NODE_ADDRESS = "3.86.98.70:8031"
+var NODE_ADDRESSES = [2]string{"127.0.0.1:8031", "127.0.0.1:8032"}
+
+// var NODE_ADDRESS = "3.86.98.70:8031"
 
 func (e *Engine) IsAlreadyRunning(p Params, reply *bool) (err error) {
 	if COMPLETEDTURNS-1 > 0 {
@@ -72,21 +81,56 @@ func (e *Engine) IsAlreadyRunning(p Params, reply *bool) (err error) {
 func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 	PARAMS = args.P
 
+	fmt.Println("111")
+
 	if NUMBER_OF_NODES == 0 {
 		WORLD = distributor(args.P, args.World)
 	} else {
-		// workerHeight := args.P.ImageHeight / NUMBER_OF_NODES
+		fmt.Println("222")
+
+		workerHeight := args.P.ImageHeight / NUMBER_OF_NODES
 		// remainderHeight := args.P.ImageHeight % NUMBER_OF_NODES
 
-		// var splitHeight int
-		// if remainderHeight > 0 {
-		// 	splitHeight = workerHeight + 1
-		// } else {
-		// 	splitHeight = workerHeight
-		// }
+		for node := 0; node < NUMBER_OF_NODES; node++ {
+			fmt.Println("333")
 
-		nodeConnection(NODE_ADDRESS)
+			tempWorld := make([][]byte, workerHeight)
+			for i := range tempWorld {
+				tempWorld[i] = make([]byte, args.P.ImageWidth)
+			}
+
+			startY := node * workerHeight
+			endY := (node + 1) * workerHeight
+
+			for y := startY; y < endY; y++ {
+				for x := 0; x < args.P.ImageWidth; x++ {
+					tempWorld[y][x] = args.World[startY+y][x]
+				}
+			}
+			// var splitHeight int
+			// if remainderHeight > 0 {
+			// 	splitHeight = workerHeight + 1
+			// } else {
+			// 	splitHeight = workerHeight
+			// }
+			server := nodeConnection(NODE_ADDRESSES[node])
+			fmt.Println("444")
+
+			nextAddress := (node + 1 + len(NODE_ADDRESSES)) % len(NODE_ADDRESSES)
+
+			request := NodeArgs{
+				P:            args.P,
+				World:        args.World,
+				NextAddress:  NODE_ADDRESSES[nextAddress],
+				WorkerHeight: workerHeight,
+			}
+			var response [][]byte
+			server.Call("Node.Start", request, response)
+
+			fmt.Println("5555")
+		}
 	}
+	WORLD = distributor(args.P, args.World)
 	*reply = WORLD
 
 	return
@@ -152,15 +196,16 @@ func (e *Engine) GetAliveCells(x int, reply *AliveCellsReply) (err error) {
 	return
 }
 
-func nodeConnection(address string) {
+func nodeConnection(address string) *rpc.Client {
 	node, error := rpc.Dial("tcp", address)
 
 	if error != nil {
 		log.Fatal("Unable to connect", error)
 	} else {
-		fmt.Println("SUCCESS!", node)
+		fmt.Println("Success!!")
 	}
 
+	return node
 }
 
 // main is the function called when starting Game of Life with 'go run .'
