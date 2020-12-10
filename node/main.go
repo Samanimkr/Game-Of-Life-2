@@ -101,23 +101,34 @@ func worker(world [][]byte, p Params, turn int, workerOut chan<- byte, workerHei
 
 func (n *Node) GetEndRow(prevRow []byte, reply *[]byte) (err error) {
 	PREVIOUS_ROW = prevRow
+	if WORLD == nil {
 
+	}
 	firstRowToSend := make([]byte, PARAMS.ImageWidth)
 	for i := range firstRowToSend {
 		firstRowToSend[i] = WORLD[0][i]
 	}
 
-	fmt.Println("GetEndRow! ", firstRowToSend)
+	fmt.Println("prevRow! ", prevRow)
+	fmt.Println("firstRowToSend! ", firstRowToSend)
 
 	*reply = firstRowToSend
 
 	return
 }
 
-func (n *Node) Start(args NodeArgs, reply *[][]byte) (err error) {
-	fmt.Println("World Received")
+func (n *Node) SendData(args NodeArgs, x *int) (err error) {
+	fmt.Println("World Received: ", args.World != nil)
+
 	WORLD = args.World
 	PARAMS = args.P
+	*x = 0
+
+	return
+}
+
+func (n *Node) Start(args NodeArgs, reply *[][]byte) (err error) {
+	fmt.Println("Start ")
 
 	nextNode, error := rpc.Dial("tcp", args.NextAddress)
 	if error != nil {
