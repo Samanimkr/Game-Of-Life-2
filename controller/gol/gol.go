@@ -1,16 +1,17 @@
 package gol
 
 import (
-	"flag"
+	"bufio"
 	"fmt"
 	"log"
 	"net/rpc"
+	"os"
 	"time"
 
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
-var server *string
+var server string
 
 // Params provides the details of how to run the Game of Life and which image to load.
 type Params struct {
@@ -93,18 +94,15 @@ func ticker(tck *time.Ticker, controller *rpc.Client, c distributorChannels) {
 func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 	// connect to engine
 	controller := engineConnection()
-	
 
 	var isAlreadyRunning bool
 	controller.Call("Engine.IsAlreadyRunning", p, &isAlreadyRunning)
-	
+
 	// create slice to store world
 	world := make([][]byte, p.ImageHeight)
 	for i := range world {
 		world[i] = make([]byte, p.ImageWidth)
 	}
-
-	
 
 	if isAlreadyRunning == false {
 		c.ioCommand <- ioCommand(ioInput)                             // send read command down command channel
@@ -119,11 +117,8 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 		}
 	}
 
-	
 	tck := time.NewTicker(2 * time.Second)
 	go ticker(tck, controller, c)
-
-	
 
 	go func() {
 		for {
@@ -169,7 +164,6 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 
 	// args := world
 	response := new([][]byte)
-	
 
 	if isAlreadyRunning == false {
 		request := Args{
@@ -178,7 +172,7 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 		}
 		controller.Call("Engine.Start", request, &response)
 		world = *response
-	}else{
+	} else {
 		controller.Call("Engine.Continue", 0, &response)
 		world = *response
 	}
@@ -198,10 +192,14 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 
 func engineConnection() *rpc.Client {
 	// connect to engine
-	if server == nil {
-		server = flag.String("server", "127.0.0.1:8030", "IP:port string to connect to as server")
+	if server == "" {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Println("Enter Server IP: ")
+		ip, _ := reader.ReadString('\n')
+		server = ip[0 : len(ip)-1]
 	}
-	controller, error := rpc.Dial("tcp", *server)
+
+	controller, error := rpc.Dial("tcp", server)
 
 	if error != nil {
 		log.Fatal("Unable to connect", error)
