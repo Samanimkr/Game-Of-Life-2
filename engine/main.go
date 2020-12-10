@@ -54,7 +54,7 @@ var FINISHEDCHANNEL = make(chan [][]byte, 1)
 var CANCELCHANNEL = make(chan bool, 1)
 var NUMBEROFCONTINUES = 0
 var DONECANCELINGCHANNEL = make(chan bool, 1)
-var NUMBER_OF_NODES = 2
+var NUMBER_OF_NODES = 1
 
 var NODE_ADDRESSES = [2]string{"127.0.0.1:8031", "127.0.0.1:8032"}
 
@@ -81,19 +81,13 @@ func (e *Engine) IsAlreadyRunning(p Params, reply *bool) (err error) {
 func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 	PARAMS = args.P
 
-	fmt.Println("111")
-
-	if NUMBER_OF_NODES == 0 {
+	if NUMBER_OF_NODES == 1 {
 		WORLD = distributor(args.P, args.World)
 	} else {
-		fmt.Println("222")
-
 		workerHeight := args.P.ImageHeight / NUMBER_OF_NODES
 		// remainderHeight := args.P.ImageHeight % NUMBER_OF_NODES
 
 		for node := 0; node < NUMBER_OF_NODES; node++ {
-			fmt.Println("333")
-
 			tempWorld := make([][]byte, workerHeight)
 			for i := range tempWorld {
 				tempWorld[i] = make([]byte, args.P.ImageWidth)
@@ -114,23 +108,18 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 			// 	splitHeight = workerHeight
 			// }
 			server := nodeConnection(NODE_ADDRESSES[node])
-			fmt.Println("444")
-
 			nextAddress := (node + 1 + len(NODE_ADDRESSES)) % len(NODE_ADDRESSES)
 
 			request := NodeArgs{
 				P:            args.P,
-				World:        args.World,
+				World:        tempWorld,
 				NextAddress:  NODE_ADDRESSES[nextAddress],
 				WorkerHeight: workerHeight,
 			}
 			var response [][]byte
 			server.Call("Node.Start", request, response)
-
-			fmt.Println("5555")
 		}
 	}
-	WORLD = distributor(args.P, args.World)
 	*reply = WORLD
 
 	return

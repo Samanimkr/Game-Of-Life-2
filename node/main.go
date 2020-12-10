@@ -29,9 +29,11 @@ type NodeArgs struct {
 
 type Node struct{}
 
-var World [][]byte
-var PreviousRow []byte
-var NextRow *[]byte
+var PARAMS Params
+var WORLD [][]byte
+var PREVIOUS_ROW []byte
+var NEXT_ROW []byte
+var WORKER_HEIGHT int
 
 func mod(x, m int) int {
 	return (x + m) % m
@@ -97,33 +99,43 @@ func worker(world [][]byte, p Params, turn int, workerOut chan<- byte, workerHei
 	}
 }
 
-// func (n *Node) GetEndRow(prevRow []byte, reply *[]byte) (err error) {
-// 	PreviousRow = prevRow
+func (n *Node) GetEndRow(prevRow []byte, reply *[]byte) (err error) {
+	PREVIOUS_ROW = prevRow
 
-// 	return
-// }
+	firstRowToSend := make([]byte, PARAMS.ImageWidth)
+	for i := range firstRowToSend {
+		firstRowToSend[i] = WORLD[WORKER_HEIGHT-1][i]
+	}
+
+	fmt.Println("GetEndRow!")
+
+	*reply = firstRowToSend
+
+	return
+}
 
 func (n *Node) Start(args NodeArgs, reply *[][]byte) (err error) {
 	fmt.Println("World Received")
-	World = args.World
+	WORLD = args.World
+	PARAMS = args.P
 
-	// nextNode, error := rpc.Dial("tcp", args.NextAddress)
-	// if error != nil {
-	// 	log.Fatal("Unable to connect", error)
-	// }
+	nextNode, error := rpc.Dial("tcp", args.NextAddress)
+	if error != nil {
+		log.Fatal("Unable to connect", error)
+	}
 
-	// lastRowToSend := make([]byte, args.P.ImageWidth)
-	// for i := range lastRowToSend {
-	// 	lastRowToSend[i] = World[args.WorkerHeight-1][i]
-	// }
+	lastRowToSend := make([]byte, args.P.ImageWidth)
+	for i := range lastRowToSend {
+		lastRowToSend[i] = WORLD[args.WorkerHeight-1][i]
+	}
 
-	// nextRowToReceive := make([]byte, args.P.ImageWidth)
-	// nextNode.Call("Node.GetEndRow", lastRowToSend, &nextRowToReceive)
-	// *NextRow = nextRowToReceive
+	nextRowToReceive := make([]byte, args.P.ImageWidth)
+	nextNode.Call("Node.GetEndRow", lastRowToSend, &nextRowToReceive)
+	NEXT_ROW = nextRowToReceive
 
-	// fmt.Println("NextRow: ", NextRow)
+	fmt.Println("NextRow: ", NEXT_ROW)
 
-	// *reply = make([][]byte, args.P.ImageWidth)
+	*reply = make([][]byte, args.P.ImageWidth)
 	return
 }
 

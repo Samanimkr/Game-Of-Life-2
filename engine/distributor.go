@@ -1,9 +1,8 @@
 package main
-import(
+
+import (
 	"fmt"
 )
-
-
 
 type Params struct {
 	Turns       int
@@ -53,16 +52,16 @@ func distributor(p Params, world [][]byte) [][]byte {
 
 	for turns := 0; turns < p.Turns; turns++ {
 		select {
-		case <- CANCELCHANNEL:
-			fmt.Println("DELTING PREVIOS ENGINE")
-			ALIVECELLS =0
+		case <-CANCELCHANNEL:
+			fmt.Println("DELETING PREVIOUS ENGINE")
+			ALIVECELLS = 0
 			COMPLETEDTURNS = 0
-			for i:=0;i < NUMBEROFCONTINUES;i++{
+			for i := 0; i < NUMBEROFCONTINUES; i++ {
 				FINISHEDCHANNEL <- world
 			}
 			NUMBEROFCONTINUES = 0
 			DONECANCELINGCHANNEL <- true
-			fmt.Println("DONE RESETING")
+			fmt.Println("DONE RESETTING")
 			return world
 		case pause := <-PAUSECHANNEL:
 			if pause == true {
@@ -105,9 +104,9 @@ func distributor(p Params, world [][]byte) [][]byte {
 
 	ALIVECELLS = 0
 	COMPLETEDTURNS = 0
-	for i:=0;i < NUMBEROFCONTINUES;i++{
+	for i := 0; i < NUMBEROFCONTINUES; i++ {
 		FINISHEDCHANNEL <- world
 	}
-	NUMBEROFCONTINUES =0
+	NUMBEROFCONTINUES = 0
 	return world
 }
