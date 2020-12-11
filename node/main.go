@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/rpc"
@@ -131,27 +132,34 @@ func (n *Node) SendData(args NodeArgs, x *int) (err error) {
 }
 
 func (n *Node) SendAddresses(args NodeArgs, x *int) (err error) {
+	fmt.Println("NextAddress: ", args.NextAddress)
+	fmt.Println("PreviousAddress: ", args.PreviousAddress)
+
 	nextNode, error := rpc.Dial("tcp", args.NextAddress)
 	if error != nil {
 		log.Fatal("Unable to connect1", error)
 	}
-
+	fmt.Println("1111 nextNode: ", nextNode)
 	prevNode, error := rpc.Dial("tcp", args.PreviousAddress)
 	if error != nil {
 		log.Fatal("Unable to connect2", error)
 	}
+	fmt.Println("2222: ", prevNode)
 
 	nextRowToReceive := make([]byte, args.P.ImageWidth)
-	nextNode.Call("Node.GetNextRow", 0, &nextRowToReceive)
+	err1 := nextNode.Call("Node.GetNextRow", 0, &nextRowToReceive)
 	NEXT_ROW = nextRowToReceive
+	fmt.Println("333 e1", err1)
 
 	prevRowToReceive := make([]byte, args.P.ImageWidth)
-	prevNode.Call("Node.GetPreviousRow", 0, &prevRowToReceive)
+	err2 := prevNode.Call("Node.GetPreviousRow", 0, &prevRowToReceive)
 	PREVIOUS_ROW = prevRowToReceive
+	fmt.Println("444 e2", err2)
 
 	*x = 0
-	nextNode.Close()
-	prevNode.Close()
+	// nextNode.Close()
+	// prevNode.Close()
+	fmt.Println("555")
 
 	return
 }
