@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net"
 	"net/rpc"
@@ -64,13 +63,12 @@ func (e *Engine) IsAlreadyRunning(p Params, reply *bool) (err error) {
 		if PARAMS == p {
 			*reply = true
 			return
-		} else {
-			//break the already running distributor and then reply false to set up a new one
-			CANCEL_CHANNEL <- true
-			<-DONE_CANCELING_CHANNEL
-			*reply = false
-			return
 		}
+		//break the already running distributor and then reply false to set up a new one
+		CANCEL_CHANNEL <- true
+		<-DONE_CANCELING_CHANNEL
+		*reply = false
+		return
 	}
 	*reply = false
 	return
@@ -81,7 +79,7 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 	PARAMS = args.P
 	WORLD = args.World
 
-	if NUMBER_OF_NODES <= 1 {
+	if NUMBER_OF_NODES == 1 {
 		WORLD = distributor(args.P, args.World)
 	} else {
 		var server = make([]rpc.Client, NUMBER_OF_NODES)
@@ -93,12 +91,13 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 
 		for turn := 0; turn < PARAMS.Turns; turn++ {
 			workerStartHeight = 0
-			var updatedWorldResponses = make([]*[][]byte, NUMBER_OF_NODES)
-			fmt.Println("111")
+			var updatedWorldResponses = make([][][]byte, NUMBER_OF_NODES)
 
 			for node := 0; node < NUMBER_OF_NODES; node++ {
-				server[node] = *nodeConnection(NODE_ADDRESSES[node])
-				fmt.Println("server[node]: ", &server[node])
+				if turn == 0 {
+					server[node] = *nodeConnection(NODE_ADDRESSES[node])
+				}
+
 				var splitHeight int
 				if remainderHeight > 0 {
 					splitHeight = workerHeight + 1
@@ -122,18 +121,14 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 					World:        tempWorld[node],
 					WorkerHeight: splitHeight,
 				}
-				server[node].Call("Node.SendData", request, 0)
+				var response int
+				server[node].Call("Node.SendData", request, &response)
 
 				remainderHeight--
 				workerStartHeight += splitHeight
-
-				// server.Close()
 			}
-			fmt.Println("222")
 
 			for node := 0; node < NUMBER_OF_NODES; node++ {
-				// server[node] := nodeConnection(NODE_ADDRESSES[node])
-
 				nextAddress := (node + 1 + len(NODE_ADDRESSES)) % len(NODE_ADDRESSES)
 				prevAddress := (node - 1 + len(NODE_ADDRESSES)) % len(NODE_ADDRESSES)
 
@@ -141,32 +136,28 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 					NextAddress:     NODE_ADDRESSES[nextAddress],
 					PreviousAddress: NODE_ADDRESSES[prevAddress],
 				}
-				fmt.Println("server[node]: ", &server[node])
-
-				server[node].Call("Node.SendAddresses", request, 0)
-				fmt.Println("err: ")
-				// server.Close()
+				var response int
+				server[node].Call("Node.SendAddresses", request, &response)
 			}
-			fmt.Println("333")
 
 			for node := 0; node < NUMBER_OF_NODES; node++ {
 				// server := nodeConnection(NODE_ADDRESSES[node])
-				server[node].Call("Node.Start", 0, &updatedWorldResponses[node])
-				server[node].Close()
+				var response [][]byte
+				server[node].Call("Node.Start", 0, &response)
+				updatedWorldResponses[node] = response
 			}
 
 			WORLD = nil
 			for i := 0; i < NUMBER_OF_NODES; i++ {
-				WORLD = append(WORLD, *updatedWorldResponses[i]...)
+				WORLD = append(WORLD, updatedWorldResponses[i]...)
 			}
 
 			ALIVE_CELLS = getNumAliveCells(PARAMS, WORLD)
 			COMPLETED_TURNS = turn + 1
-
-			fmt.Println("ALIVE_CELLS: ", ALIVE_CELLS)
-			fmt.Println("COMPLETED_TURNS: ", COMPLETED_TURNS)
 		}
 	}
+	ALIVE_CELLS = 0
+	COMPLETED_TURNS = 0
 	*reply = WORLD
 
 	return

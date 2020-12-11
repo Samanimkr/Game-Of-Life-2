@@ -2,10 +2,10 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net"
 	"net/rpc"
+	"runtime"
 )
 
 type Args struct {
@@ -35,6 +35,9 @@ var WORLD [][]byte
 var PREVIOUS_ROW []byte
 var NEXT_ROW []byte
 var WORKER_HEIGHT int
+
+var NEXT_NODE *rpc.Client
+var PREVIOUS_NODE *rpc.Client
 
 func mod(x, m int) int {
 	return (x + m) % m
@@ -132,34 +135,31 @@ func (n *Node) SendData(args NodeArgs, x *int) (err error) {
 }
 
 func (n *Node) SendAddresses(args NodeArgs, x *int) (err error) {
-	fmt.Println("NextAddress: ", args.NextAddress)
-	fmt.Println("PreviousAddress: ", args.PreviousAddress)
+	if NEXT_NODE == nil {
+		nextNode, error := rpc.Dial("tcp", args.NextAddress)
+		if error != nil {
+			log.Fatal("Unable to connect1", error)
+		}
+		NEXT_NODE = nextNode
+	}
 
-	nextNode, error := rpc.Dial("tcp", args.NextAddress)
-	if error != nil {
-		log.Fatal("Unable to connect1", error)
+	if PREVIOUS_NODE == nil {
+		prevNode, error := rpc.Dial("tcp", args.PreviousAddress)
+		if error != nil {
+			log.Fatal("Unable to connect2", error)
+		}
+		PREVIOUS_NODE = prevNode
 	}
-	fmt.Println("1111 nextNode: ", nextNode)
-	prevNode, error := rpc.Dial("tcp", args.PreviousAddress)
-	if error != nil {
-		log.Fatal("Unable to connect2", error)
-	}
-	fmt.Println("2222: ", prevNode)
 
 	nextRowToReceive := make([]byte, args.P.ImageWidth)
-	err1 := nextNode.Call("Node.GetNextRow", 0, &nextRowToReceive)
+	NEXT_NODE.Call("Node.GetNextRow", 0, &nextRowToReceive)
 	NEXT_ROW = nextRowToReceive
-	fmt.Println("333 e1", err1)
 
 	prevRowToReceive := make([]byte, args.P.ImageWidth)
-	err2 := prevNode.Call("Node.GetPreviousRow", 0, &prevRowToReceive)
+	PREVIOUS_NODE.Call("Node.GetPreviousRow", 0, &prevRowToReceive)
 	PREVIOUS_ROW = prevRowToReceive
-	fmt.Println("444 e2", err2)
 
 	*x = 0
-	// nextNode.Close()
-	// prevNode.Close()
-	fmt.Println("555")
 
 	return
 }
@@ -206,6 +206,8 @@ func (n *Node) Start(x int, reply *[][]byte) (err error) {
 
 // main is the function called when starting Game of Life with 'go run .'
 func main() {
+	runtime.LockOSThread() // not sure what this does but was in skeleton
+
 	portPtr := flag.String("port", ":8031", "listening on this port")
 	flag.Parse()          // call after all flags are defined to parse command line into flags
 	rpc.Register(&Node{}) // WHAT DOES THIS DO?
@@ -214,7 +216,7 @@ func main() {
 	if error != nil {                        // produces error message if fails to connect
 		log.Fatal("Unable to connect:", error)
 	}
-	defer ln.Close() // stops execution until surrounding functions return
-	rpc.Accept(ln)   // accepts connections on ln and serves requests to server for each incoming connection
+	// defer ln.Close() // stops execution until surrounding functions return
+	rpc.Accept(ln) // accepts connections on ln and serves requests to server for each incoming connection
 
 }
