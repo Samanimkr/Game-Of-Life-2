@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/rpc"
+	"os"
 	"time"
 
 	"uk.ac.bris.cs/gameoflife/util"
@@ -122,7 +123,14 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 		for {
 			select {
 			case pressed := <-keyPresses:
-				if pressed == 's' {
+				if pressed == 'k' {
+					tck.Stop()
+
+					killResponse := new(SaveReply)
+					controller.Call("Engine.Kill", 0, &killResponse)
+					os.Exit(0)
+					return
+				} else if pressed == 's' {
 					saveResponse := new(SaveReply)
 					controller.Call("Engine.Save", 0, &saveResponse)
 					outputPGM(saveResponse.World, c, p, saveResponse.CompletedTurns)
@@ -160,7 +168,6 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 		}
 	}()
 
-	// args := world
 	response := new([][]byte)
 
 	if isAlreadyRunning == false {
@@ -176,10 +183,13 @@ func engine(p Params, c distributorChannels, keyPresses <-chan rune) {
 	}
 
 	tck.Stop()
+	var finalAliveCells = []util.Cell{}
+	if world != nil {
+		finalAliveCells = getAliveCells(p, world)
 
-	finalAliveCellsNum := getAliveCells(p, world)
-	c.events <- FinalTurnComplete{p.Turns, finalAliveCellsNum}
-	outputPGM(world, c, p, p.Turns)
+		c.events <- FinalTurnComplete{p.Turns, finalAliveCells}
+		outputPGM(world, c, p, p.Turns)
+	}
 
 	c.ioCommand <- ioCheckIdle
 	<-c.ioIdle
@@ -194,7 +204,7 @@ func engineConnection() *rpc.Client {
 		// reader := bufio.NewReader(os.Stdin)
 		// fmt.Println("Enter Server IP: ")
 		// ip, _ := reader.ReadString('\n')
-		// server = ip[0 : len(ip)-1]
+		// server = ip[0:len(ip)-1]
 		server = "127.0.0.1:8030"
 	}
 

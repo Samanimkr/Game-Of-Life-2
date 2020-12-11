@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"net/rpc"
+	"os"
 	"runtime"
 )
 
@@ -204,6 +205,16 @@ func (n *Node) Start(x int, reply *[][]byte) (err error) {
 	return
 }
 
+// Kill function
+func (n *Node) Kill(x int, reply *int) (err error) {
+	NEXT_NODE.Close()
+	PREVIOUS_NODE.Close()
+
+	*reply = 0
+	os.Exit(0)
+	return
+}
+
 // main is the function called when starting Game of Life with 'go run .'
 func main() {
 	runtime.LockOSThread() // not sure what this does but was in skeleton
@@ -218,5 +229,4 @@ func main() {
 	}
 	// defer ln.Close() // stops execution until surrounding functions return
 	rpc.Accept(ln) // accepts connections on ln and serves requests to server for each incoming connection
-
 }

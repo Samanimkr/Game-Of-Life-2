@@ -2,9 +2,11 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/rpc"
+	"os"
 	"runtime"
 )
 
@@ -50,10 +52,17 @@ var PARAMS Params
 var ALIVE_CELLS int
 var COMPLETED_TURNS = 0
 var NUMBER_OF_CONTINUES = 0
-var NUMBER_OF_NODES = 2
-var NODE_ADDRESSES = [2]string{"127.0.0.1:8031", "127.0.0.1:8032"}
+
+// NUMBER_OF_NODES is 1 by default and then should be increased to equal the number of nodes used
+var NUMBER_OF_NODES = 1
+
+// NODE_ADDRESSES holds a slice of all the nodes' ip addresses in this format: "ip:port". For example:
+// var NODE_ADDRESSES = []string{"127.0.0.1:8031", "127.0.0.1:8032"}
+var NODE_ADDRESSES = []string{}
 
 var PAUSE_CHANNEL = make(chan bool, 1)
+var KILL_CHANNEL = make(chan bool)
+var KILL_DONE_CHANNEL = make(chan bool)
 var FINISHED_CHANNEL = make(chan [][]byte, 1)
 var CANCEL_CHANNEL = make(chan bool, 1)
 var DONE_CANCELING_CHANNEL = make(chan bool, 1)
@@ -86,78 +95,112 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 		var tempWorld = make([][][]byte, NUMBER_OF_NODES)
 
 		workerHeight := args.P.ImageHeight / NUMBER_OF_NODES
-		remainderHeight := args.P.ImageHeight % NUMBER_OF_NODES
 		workerStartHeight := 0
 
 		for turn := 0; turn < PARAMS.Turns; turn++ {
-			workerStartHeight = 0
-			var updatedWorldResponses = make([][][]byte, NUMBER_OF_NODES)
-
-			for node := 0; node < NUMBER_OF_NODES; node++ {
-				if turn == 0 {
-					server[node] = *nodeConnection(NODE_ADDRESSES[node])
+			select {
+			case <-CANCEL_CHANNEL:
+				fmt.Println("DELETING PREVIOUS ENGINE")
+				ALIVE_CELLS = 0
+				COMPLETED_TURNS = 0
+				for i := 0; i < NUMBER_OF_CONTINUES; i++ {
+					FINISHED_CHANNEL <- WORLD
 				}
-
-				var splitHeight int
-				if remainderHeight > 0 {
-					splitHeight = workerHeight + 1
-				} else {
-					splitHeight = workerHeight
-				}
-
-				tempWorld[node] = make([][]byte, splitHeight)
-				for i := range tempWorld[node] {
-					tempWorld[node][i] = make([]byte, PARAMS.ImageWidth)
-				}
-
-				for y := 0; y < splitHeight; y++ {
-					for x := 0; x < PARAMS.ImageWidth; x++ {
-						tempWorld[node][y][x] = WORLD[workerStartHeight+y][x]
+				NUMBER_OF_CONTINUES = 0
+				DONE_CANCELING_CHANNEL <- true
+				fmt.Println("DONE RESETTING")
+			case pause := <-PAUSE_CHANNEL:
+				if pause == true {
+					for {
+						tempKey := <-PAUSE_CHANNEL
+						if tempKey == false {
+							break
+						}
 					}
 				}
-
-				request := NodeArgs{
-					P:            args.P,
-					World:        tempWorld[node],
-					WorkerHeight: splitHeight,
+			case <-KILL_CHANNEL:
+				for node := 0; node < NUMBER_OF_NODES; node++ {
+					var res int
+					server[node].Call("Node.Kill", 0, &res)
+					server[node].Close()
 				}
-				var response int
-				server[node].Call("Node.SendData", request, &response)
+				KILL_DONE_CHANNEL <- true
+				return
+			default:
+				remainderHeight := args.P.ImageHeight % NUMBER_OF_NODES
+				workerStartHeight = 0
+				var updatedWorldResponses = make([][][]byte, NUMBER_OF_NODES)
 
-				remainderHeight--
-				workerStartHeight += splitHeight
-			}
+				for node := 0; node < NUMBER_OF_NODES; node++ {
+					if turn == 0 {
+						server[node] = *nodeConnection(NODE_ADDRESSES[node])
+					}
 
-			for node := 0; node < NUMBER_OF_NODES; node++ {
-				nextAddress := (node + 1 + len(NODE_ADDRESSES)) % len(NODE_ADDRESSES)
-				prevAddress := (node - 1 + len(NODE_ADDRESSES)) % len(NODE_ADDRESSES)
+					var splitHeight int
+					if remainderHeight > 0 {
+						splitHeight = workerHeight + 1
+					} else {
+						splitHeight = workerHeight
+					}
 
-				request := NodeArgs{
-					NextAddress:     NODE_ADDRESSES[nextAddress],
-					PreviousAddress: NODE_ADDRESSES[prevAddress],
+					tempWorld[node] = make([][]byte, splitHeight)
+					for i := range tempWorld[node] {
+						tempWorld[node][i] = make([]byte, PARAMS.ImageWidth)
+					}
+
+					for y := 0; y < splitHeight; y++ {
+						for x := 0; x < PARAMS.ImageWidth; x++ {
+							tempWorld[node][y][x] = WORLD[workerStartHeight+y][x]
+						}
+					}
+
+					request := NodeArgs{
+						P:            args.P,
+						World:        tempWorld[node],
+						WorkerHeight: splitHeight,
+					}
+					var response int
+					server[node].Call("Node.SendData", request, &response)
+
+					remainderHeight--
+					workerStartHeight += splitHeight
 				}
-				var response int
-				server[node].Call("Node.SendAddresses", request, &response)
-			}
 
-			for node := 0; node < NUMBER_OF_NODES; node++ {
-				// server := nodeConnection(NODE_ADDRESSES[node])
-				var response [][]byte
-				server[node].Call("Node.Start", 0, &response)
-				updatedWorldResponses[node] = response
-			}
+				for node := 0; node < NUMBER_OF_NODES; node++ {
+					nextAddress := (node + 1 + NUMBER_OF_NODES) % NUMBER_OF_NODES
+					prevAddress := (node - 1 + NUMBER_OF_NODES) % NUMBER_OF_NODES
 
-			WORLD = nil
-			for i := 0; i < NUMBER_OF_NODES; i++ {
-				WORLD = append(WORLD, updatedWorldResponses[i]...)
-			}
+					request := NodeArgs{
+						NextAddress:     NODE_ADDRESSES[nextAddress],
+						PreviousAddress: NODE_ADDRESSES[prevAddress],
+					}
+					var response int
+					server[node].Call("Node.SendAddresses", request, &response)
+				}
 
-			ALIVE_CELLS = getNumAliveCells(PARAMS, WORLD)
-			COMPLETED_TURNS = turn + 1
+				for node := 0; node < NUMBER_OF_NODES; node++ {
+					// server := nodeConnection(NODE_ADDRESSES[node])
+					var response [][]byte
+					server[node].Call("Node.Start", 0, &response)
+					updatedWorldResponses[node] = response
+				}
+
+				WORLD = nil
+				for i := 0; i < NUMBER_OF_NODES; i++ {
+					WORLD = append(WORLD, updatedWorldResponses[i]...)
+				}
+
+				ALIVE_CELLS = getNumAliveCells(PARAMS, WORLD)
+				COMPLETED_TURNS = turn + 1
+			}
 		}
 	}
 	ALIVE_CELLS = 0
 	COMPLETED_TURNS = 0
+	for i := 0; i < NUMBER_OF_CONTINUES; i++ {
+		FINISHED_CHANNEL <- WORLD
+	}
+	NUMBER_OF_CONTINUES = 0
 	*reply = WORLD
 
 	return
@@ -167,6 +210,21 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 func (e *Engine) Continue(x int, reply *[][]byte) (err error) {
 	NUMBER_OF_CONTINUES++
 	*reply = <-FINISHED_CHANNEL
+	return
+}
+
+// Kill function
+func (e *Engine) Kill(x int, reply *SaveReply) (err error) {
+	KILL_CHANNEL <- true
+	<-KILL_DONE_CHANNEL
+
+	killReply := SaveReply{
+		CompletedTurns: COMPLETED_TURNS,
+		World:          WORLD,
+	}
+
+	*reply = killReply
+	os.Exit(0)
 	return
 }
 
