@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net"
 	"net/rpc"
@@ -55,7 +54,7 @@ func aliveNeighbours(world [][]byte, y, x int, p Params) int {
 	for i := -1; i < 2; i++ {
 		for j := -1; j < 2; j++ {
 			if i != 0 || j != 0 {
-				if world[mod(y+i, WORKER_HEIGHT)][mod(x+j, p.ImageWidth)] != 0 {
+				if world[mod(y+i, p.ImageHeight)][mod(x+j, p.ImageWidth)] != 0 {
 					neighbours++
 				}
 
@@ -95,10 +94,8 @@ func worker(world [][]byte, workerOut chan<- byte) {
 	// Send the updated world down the 'workerOut' channel
 	for y := 0; y < WORKER_HEIGHT; y++ {
 		for x := 0; x < PARAMS.ImageWidth; x++ {
-			fmt.Print("[", tempWorld[y+1][x], "] ")
 			workerOut <- tempWorld[y+1][x]
 		}
-		fmt.Println("")
 	}
 }
 
@@ -107,8 +104,6 @@ func (n *Node) GetPreviousRow(x int, reply *[]byte) (err error) {
 	for i := range lastRowToSend {
 		lastRowToSend[i] = WORLD[WORKER_HEIGHT-1][i]
 	}
-
-	fmt.Println("lastRowToSend: ", lastRowToSend)
 
 	*reply = lastRowToSend
 
@@ -120,8 +115,6 @@ func (n *Node) GetNextRow(x int, reply *[]byte) (err error) {
 	for i := range firstRowToSend {
 		firstRowToSend[i] = WORLD[0][i]
 	}
-
-	fmt.Println("firstRowToSend: ", firstRowToSend)
 
 	*reply = firstRowToSend
 
@@ -157,6 +150,8 @@ func (n *Node) SendAddresses(args NodeArgs, x *int) (err error) {
 	PREVIOUS_ROW = prevRowToReceive
 
 	*x = 0
+	nextNode.Close()
+	prevNode.Close()
 
 	return
 }

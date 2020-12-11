@@ -79,74 +79,89 @@ func (e *Engine) IsAlreadyRunning(p Params, reply *bool) (err error) {
 // Start function
 func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 	PARAMS = args.P
+	WORLD = args.World
 
 	if NUMBER_OF_NODES == 1 {
 		WORLD = distributor(args.P, args.World)
 	} else {
-		var server = make([]*rpc.Client, NUMBER_OF_NODES)
+		// var server = make([]*rpc.Client, NUMBER_OF_NODES)
 		var tempWorld = make([][][]byte, NUMBER_OF_NODES)
 		workerHeight := args.P.ImageHeight / NUMBER_OF_NODES
 		remainderHeight := args.P.ImageHeight % NUMBER_OF_NODES
 		workerStartHeight := 0
+		fmt.Println("PARAMS.Turns: ", PARAMS.Turns)
+		for turn := 0; turn < PARAMS.Turns; turn++ {
+			workerStartHeight = 0
+			var updatedWorldResponses = make([]*[][]byte, NUMBER_OF_NODES)
 
-		for node := 0; node < NUMBER_OF_NODES; node++ {
-			server[node] = nodeConnection(NODE_ADDRESSES[node])
+			for node := 0; node < NUMBER_OF_NODES; node++ {
+				server := nodeConnection(NODE_ADDRESSES[node])
 
-			var splitHeight int
-			if remainderHeight > 0 {
-				splitHeight = workerHeight + 1
-			} else {
-				splitHeight = workerHeight
-			}
-
-			tempWorld[node] = make([][]byte, splitHeight)
-			for i := range tempWorld[node] {
-				tempWorld[node][i] = make([]byte, PARAMS.ImageWidth)
-			}
-
-			for y := 0; y < splitHeight; y++ {
-				for x := 0; x < PARAMS.ImageWidth; x++ {
-					tempWorld[node][y][x] = args.World[workerStartHeight+y][x]
+				var splitHeight int
+				if remainderHeight > 0 {
+					splitHeight = workerHeight + 1
+				} else {
+					splitHeight = workerHeight
 				}
+
+				tempWorld[node] = make([][]byte, splitHeight)
+				for i := range tempWorld[node] {
+					tempWorld[node][i] = make([]byte, PARAMS.ImageWidth)
+				}
+
+				for y := 0; y < splitHeight; y++ {
+					for x := 0; x < PARAMS.ImageWidth; x++ {
+						tempWorld[node][y][x] = WORLD[workerStartHeight+y][x]
+					}
+				}
+
+				request := NodeArgs{
+					P:            args.P,
+					World:        tempWorld[node],
+					WorkerHeight: splitHeight,
+				}
+				server.Call("Node.SendData", request, 0)
+
+				remainderHeight--
+				workerStartHeight += splitHeight
+
+				server.Close()
 			}
 
-			request := NodeArgs{
-				P:            args.P,
-				World:        tempWorld[node],
-				WorkerHeight: splitHeight,
+			for node := 0; node < NUMBER_OF_NODES; node++ {
+				server := nodeConnection(NODE_ADDRESSES[node])
+
+				nextAddress := (node + 1 + len(NODE_ADDRESSES)) % len(NODE_ADDRESSES)
+				prevAddress := (node - 1 + len(NODE_ADDRESSES)) % len(NODE_ADDRESSES)
+
+				request := NodeArgs{
+					NextAddress:     NODE_ADDRESSES[nextAddress],
+					PreviousAddress: NODE_ADDRESSES[prevAddress],
+				}
+				server.Call("Node.SendAddresses", request, 0)
+				server.Close()
 			}
-			server[node].Call("Node.SendData", request, 0)
 
-			remainderHeight--
-			workerStartHeight += splitHeight
-		}
-
-		for node := 0; node < NUMBER_OF_NODES; node++ {
-			server[node] = nodeConnection(NODE_ADDRESSES[node])
-
-			nextAddress := (node + 1 + len(NODE_ADDRESSES)) % len(NODE_ADDRESSES)
-			prevAddress := (node - 1 + len(NODE_ADDRESSES)) % len(NODE_ADDRESSES)
-
-			request := NodeArgs{
-				NextAddress:     NODE_ADDRESSES[nextAddress],
-				PreviousAddress: NODE_ADDRESSES[prevAddress],
+			for node := 0; node < NUMBER_OF_NODES; node++ {
+				server := nodeConnection(NODE_ADDRESSES[node])
+				server.Call("Node.Start", 0, &updatedWorldResponses[node])
+				server.Close()
 			}
-			server[node].Call("Node.SendAddresses", request, 0)
-		}
 
-		var updatedWorldResponses = make([]*[][]byte, NUMBER_OF_NODES)
+			WORLD = nil
+			for i := 0; i < NUMBER_OF_NODES; i++ {
+				WORLD = append(WORLD, *updatedWorldResponses[i]...)
+			}
 
-		for node := 0; node < NUMBER_OF_NODES; node++ {
-			server[node] = nodeConnection(NODE_ADDRESSES[node])
-			server[node].Call("Node.Start", 0, &updatedWorldResponses[node])
-		}
+			ALIVE_CELLS = getNumAliveCells(PARAMS, WORLD)
+			COMPLETED_TURNS = turn + 1
 
-		WORLD = nil
-		for i := 0; i < NUMBER_OF_NODES; i++ {
-			WORLD = append(WORLD, *updatedWorldResponses[i]...)
+			fmt.Println("ALIVE_CELLS: ", ALIVE_CELLS)
+			fmt.Println("COMPLETED_TURNS: ", COMPLETED_TURNS)
 		}
-		fmt.Println("UPDATED WORLD: ", WORLD)
 	}
+	ALIVE_CELLS = 0
+	COMPLETED_TURNS = 0
 	*reply = WORLD
 
 	return
