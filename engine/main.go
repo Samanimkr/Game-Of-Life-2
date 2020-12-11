@@ -83,33 +83,42 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 	if NUMBER_OF_NODES == 1 {
 		WORLD = distributor(args.P, args.World)
 	} else {
-		workerHeight := args.P.ImageHeight / NUMBER_OF_NODES
 		var server = make([]*rpc.Client, NUMBER_OF_NODES)
 		var tempWorld = make([][][]byte, NUMBER_OF_NODES)
-		// remainderHeight := args.P.ImageHeight % NUMBER_OF_NODES
+		workerHeight := args.P.ImageHeight / NUMBER_OF_NODES
+		remainderHeight := args.P.ImageHeight % NUMBER_OF_NODES
+		workerStartHeight := 0
 
 		for node := 0; node < NUMBER_OF_NODES; node++ {
 			server[node] = nodeConnection(NODE_ADDRESSES[node])
 
-			startY := node * workerHeight
+			var splitHeight int
+			if remainderHeight > 0 {
+				splitHeight = workerHeight + 1
+			} else {
+				splitHeight = workerHeight
+			}
 
-			tempWorld[node] = make([][]byte, workerHeight)
+			tempWorld[node] = make([][]byte, splitHeight)
 			for i := range tempWorld[node] {
 				tempWorld[node][i] = make([]byte, PARAMS.ImageWidth)
 			}
 
-			for y := 0; y < workerHeight; y++ {
+			for y := 0; y < splitHeight; y++ {
 				for x := 0; x < PARAMS.ImageWidth; x++ {
-					tempWorld[node][y][x] = args.World[startY+y][x]
+					tempWorld[node][y][x] = args.World[workerStartHeight+y][x]
 				}
 			}
 
 			request := NodeArgs{
 				P:            args.P,
 				World:        tempWorld[node],
-				WorkerHeight: workerHeight,
+				WorkerHeight: splitHeight,
 			}
 			server[node].Call("Node.SendData", request, 0)
+
+			remainderHeight--
+			workerStartHeight += splitHeight
 		}
 
 		for node := 0; node < NUMBER_OF_NODES; node++ {

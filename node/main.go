@@ -55,7 +55,7 @@ func aliveNeighbours(world [][]byte, y, x int, p Params) int {
 	for i := -1; i < 2; i++ {
 		for j := -1; j < 2; j++ {
 			if i != 0 || j != 0 {
-				if world[mod(y+i, p.ImageHeight)][mod(x+j, p.ImageWidth)] != 0 {
+				if world[mod(y+i, WORKER_HEIGHT)][mod(x+j, p.ImageWidth)] != 0 {
 					neighbours++
 				}
 
@@ -67,9 +67,7 @@ func aliveNeighbours(world [][]byte, y, x int, p Params) int {
 
 func worker(world [][]byte, workerOut chan<- byte) {
 	// Create a temporary empty world
-	tempWorld := createWorld(PARAMS.ImageHeight+2, PARAMS.ImageWidth)
-
-	fmt.Println("WORKER")
+	tempWorld := createWorld(WORKER_HEIGHT+2, PARAMS.ImageWidth)
 
 	// Loop through the worker's section of the world
 	for y := 1; y <= WORKER_HEIGHT; y++ {
@@ -93,7 +91,6 @@ func worker(world [][]byte, workerOut chan<- byte) {
 			}
 		}
 	}
-	fmt.Println("WORKER2")
 
 	// Send the updated world down the 'workerOut' channel
 	for y := 0; y < WORKER_HEIGHT; y++ {
@@ -103,8 +100,6 @@ func worker(world [][]byte, workerOut chan<- byte) {
 		}
 		fmt.Println("")
 	}
-	fmt.Println("WORKER3")
-
 }
 
 func (n *Node) GetPreviousRow(x int, reply *[]byte) (err error) {
@@ -153,11 +148,6 @@ func (n *Node) SendAddresses(args NodeArgs, x *int) (err error) {
 		log.Fatal("Unable to connect2", error)
 	}
 
-	lastRowToSend := make([]byte, args.P.ImageWidth)
-	for i := range lastRowToSend {
-		lastRowToSend[i] = WORLD[WORKER_HEIGHT-1][i]
-	}
-
 	nextRowToReceive := make([]byte, args.P.ImageWidth)
 	nextNode.Call("Node.GetNextRow", 0, &nextRowToReceive)
 	NEXT_ROW = nextRowToReceive
@@ -165,8 +155,6 @@ func (n *Node) SendAddresses(args NodeArgs, x *int) (err error) {
 	prevRowToReceive := make([]byte, args.P.ImageWidth)
 	prevNode.Call("Node.GetPreviousRow", 0, &prevRowToReceive)
 	PREVIOUS_ROW = prevRowToReceive
-
-	fmt.Println("PREVIOUS_ROW: ", PREVIOUS_ROW)
 
 	*x = 0
 
