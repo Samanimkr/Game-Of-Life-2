@@ -54,11 +54,12 @@ var COMPLETED_TURNS = 0
 var NUMBER_OF_CONTINUES = 0
 
 // NUMBER_OF_NODES is 1 by default and then should be increased to equal the number of nodes used
-var NUMBER_OF_NODES = 1
+var NUMBER_OF_NODES = 2
 
-// NODE_ADDRESSES holds a slice of all the nodes' ip addresses in this format: "ip:port". For example:
-// var NODE_ADDRESSES = []string{"127.0.0.1:8031", "127.0.0.1:8032"}
-var NODE_ADDRESSES = []string{}
+// NODE_ADDRESSES holds a slice of all the nodes' ip addresses in this format: "ip:port"
+var NODE_ADDRESSES = []string{"127.0.0.1:8031", "127.0.0.1:8032"}
+
+var Server = make([]rpc.Client, NUMBER_OF_NODES)
 
 var PAUSE_CHANNEL = make(chan bool, 1)
 var KILL_CHANNEL = make(chan bool)
@@ -67,6 +68,7 @@ var FINISHED_CHANNEL = make(chan [][]byte, 1)
 var CANCEL_CHANNEL = make(chan bool, 1)
 var DONE_CANCELING_CHANNEL = make(chan bool, 1)
 
+// IsAlreadyRunning function
 func (e *Engine) IsAlreadyRunning(p Params, reply *bool) (err error) {
 	if COMPLETED_TURNS-1 > 0 {
 		if PARAMS == p {
@@ -91,7 +93,6 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 	if NUMBER_OF_NODES == 1 {
 		WORLD = distributor(args.P, args.World)
 	} else {
-		var server = make([]rpc.Client, NUMBER_OF_NODES)
 		var tempWorld = make([][][]byte, NUMBER_OF_NODES)
 
 		workerHeight := args.P.ImageHeight / NUMBER_OF_NODES
@@ -121,8 +122,8 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 			case <-KILL_CHANNEL:
 				for node := 0; node < NUMBER_OF_NODES; node++ {
 					var res int
-					server[node].Call("Node.Kill", 0, &res)
-					server[node].Close()
+					Server[node].Call("Node.Kill", 0, &res)
+					Server[node].Close()
 				}
 				KILL_DONE_CHANNEL <- true
 				return
@@ -133,7 +134,7 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 
 				for node := 0; node < NUMBER_OF_NODES; node++ {
 					if turn == 0 {
-						server[node] = *nodeConnection(NODE_ADDRESSES[node])
+						Server[node] = *nodeConnection(NODE_ADDRESSES[node])
 					}
 
 					var splitHeight int
@@ -160,7 +161,7 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 						WorkerHeight: splitHeight,
 					}
 					var response int
-					server[node].Call("Node.SendData", request, &response)
+					Server[node].Call("Node.SendData", request, &response)
 
 					remainderHeight--
 					workerStartHeight += splitHeight
@@ -175,13 +176,13 @@ func (e *Engine) Start(args Args, reply *[][]byte) (err error) {
 						PreviousAddress: NODE_ADDRESSES[prevAddress],
 					}
 					var response int
-					server[node].Call("Node.SendAddresses", request, &response)
+					Server[node].Call("Node.SendAddresses", request, &response)
 				}
 
 				for node := 0; node < NUMBER_OF_NODES; node++ {
 					// server := nodeConnection(NODE_ADDRESSES[node])
 					var response [][]byte
-					server[node].Call("Node.Start", 0, &response)
+					Server[node].Call("Node.Start", 0, &response)
 					updatedWorldResponses[node] = response
 				}
 
@@ -215,8 +216,10 @@ func (e *Engine) Continue(x int, reply *[][]byte) (err error) {
 
 // Kill function
 func (e *Engine) Kill(x int, reply *SaveReply) (err error) {
-	KILL_CHANNEL <- true
-	<-KILL_DONE_CHANNEL
+	if NUMBER_OF_NODES > 1 {
+		KILL_CHANNEL <- true
+		<-KILL_DONE_CHANNEL
+	}
 
 	killReply := SaveReply{
 		CompletedTurns: COMPLETED_TURNS,
