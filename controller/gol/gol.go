@@ -205,7 +205,7 @@ func engineConnection() *rpc.Client {
 		// fmt.Println("Enter Server IP: ")
 		// ip, _ := reader.ReadString('\n')
 		// server = ip[0:len(ip)-1]
-		server = "127.0.0.1:8030"
+		server = "100.25.163.91:8030"
 	}
 
 	controller, error := rpc.Dial("tcp", server)
