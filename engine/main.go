@@ -57,7 +57,7 @@ var NUMBER_OF_CONTINUES = 0
 var NUMBER_OF_NODES = 2
 
 // NODE_ADDRESSES holds a slice of all the nodes' ip addresses in this format: "ip:port"
-var NODE_ADDRESSES = []string{"54.225.13.202:8031", "34.201.61.70:8031"}
+var NODE_ADDRESSES = []string{"52.87.252.150:8031", "35.153.183.115:8031"}
 
 var Server = make([]rpc.Client, NUMBER_OF_NODES)
 
