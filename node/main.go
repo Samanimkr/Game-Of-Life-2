@@ -227,6 +227,6 @@ func main() {
 	if error != nil {                        // produces error message if fails to connect
 		log.Fatal("Unable to connect:", error)
 	}
-	// defer ln.Close() // stops execution until surrounding functions return
+	defer ln.Close() // stops execution until surrounding functions return
 	rpc.Accept(ln) // accepts connections on ln and serves requests to server for each incoming connection
 }
